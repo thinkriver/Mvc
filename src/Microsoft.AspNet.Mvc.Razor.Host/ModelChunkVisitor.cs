@@ -6,7 +6,7 @@ using Microsoft.AspNet.Razor.Generator.Compiler.CSharp;
 
 namespace Microsoft.AspNet.Mvc.Razor
 {
-    public class ModelChunkVisitor : MvcCSharpCodeVisitor
+    public class ModelChunkVisitor : MvcCodeVisitor
     {
         public ModelChunkVisitor([NotNull] CSharpCodeWriter writer,
                                  [NotNull] CodeGeneratorContext context)

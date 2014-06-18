@@ -9,6 +9,7 @@ using Microsoft.AspNet.Razor;
 using Microsoft.AspNet.Razor.Generator;
 using Microsoft.AspNet.Razor.Generator.Compiler;
 using Microsoft.AspNet.Razor.Parser;
+using Microsoft.AspNet.Razor.TagHelpers;
 
 namespace Microsoft.AspNet.Mvc.Razor
 {
@@ -32,30 +33,29 @@ namespace Microsoft.AspNet.Mvc.Razor
         // This field holds the type name without the generic decoration (MyBaseType)
         private readonly string _baseType;
 
-        public MvcRazorHost(Type baseType)
-            : this(baseType.FullName)
-        {
-        }
+        private IRazorCodeBuilderProvider _codeBuilderProvider;
+        private IRazorCodeParserProvider _codeParserProvider;
 
-        public MvcRazorHost(string baseType)
+        // TODO: Change parser and builder to be interfaces? Would have to happen in Razor lib
+        public MvcRazorHost(IRazorBaseTypeResolver baseTypeResolver,
+                            IRazorCodeBuilderProvider codeBuilderProvider,
+                            IRazorCodeParserProvider parserProvider,
+                            IGeneratedTagHelperContext generatedTagHelperContext)
             : base(new CSharpRazorCodeLanguage())
         {
             // TODO: this needs to flow from the application rather than being initialized here.
             // Tracked by #774
             _hostOptions = new MvcRazorHostOptions();
+            _codeBuilderProvider = codeBuilderProvider;
+            _codeParserProvider = parserProvider;
+
+            var baseType = baseTypeResolver.Resolve();
+
             _baseType = baseType;
             DefaultBaseClass = baseType + '<' + _hostOptions.DefaultModel + '>';
-            GeneratedClassContext = new GeneratedClassContext(
-                executeMethodName: "ExecuteAsync",
-                writeMethodName: "Write",
-                writeLiteralMethodName: "WriteLiteral",
-                writeToMethodName: "WriteTo",
-                writeLiteralToMethodName: "WriteLiteralTo",
-                templateTypeName: "HelperResult",
-                defineSectionMethodName: "DefineSection")
-            {
-                ResolveUrlMethodName = "Href"
-            };
+            GeneratedClassContext = new MvcGeneratedClassContext();
+
+            GeneratedTagHelperContext = generatedTagHelperContext;
 
             foreach (var ns in _defaultNamespaces)
             {
@@ -75,13 +75,13 @@ namespace Microsoft.AspNet.Mvc.Razor
 
         public override ParserBase DecorateCodeParser(ParserBase incomingCodeParser)
         {
-            return new MvcRazorCodeParser(_baseType);
+            return _codeParserProvider.GetCodeParser(incomingCodeParser, _baseType);
         }
 
         public override CodeBuilder DecorateCodeBuilder(CodeBuilder incomingBuilder, CodeGeneratorContext context)
         {
             UpdateCodeBuilder(context);
-            return new MvcCSharpCodeBuilder(context, _hostOptions);
+            return _codeBuilderProvider.GetCodeBuilder(incomingBuilder, context);
         }
 
         private void UpdateCodeBuilder(CodeGeneratorContext context)

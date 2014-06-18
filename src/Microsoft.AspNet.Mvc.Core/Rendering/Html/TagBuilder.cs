@@ -33,7 +33,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
             set { _innerHtml = value; }
         }
 
-        public string TagName { get; private set; }
+        public string TagName { get; set; }
 
         public void AddCssClass(string value)
         {
