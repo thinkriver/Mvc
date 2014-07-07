@@ -28,6 +28,11 @@ namespace MvcSample.Web
             return View();
         }
 
+        public ActionResult FlushPointSample()
+        {
+            return View();
+        }
+
         /// <summary>
         /// Action that shows metadata when model is <c>null</c>.
         /// </summary>

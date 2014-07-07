@@ -1,0 +1,31 @@
+﻿@using System.Threading
+@{ 
+    Layout = "/Views/Shared/_Layout.cshtml";
+}
+@functions
+{
+    private static IEnumerable<string> GetStuffToPrint()
+    {
+        
+        for (int i = 0; i < 10; i++)
+        {
+            yield return i.ToString();
+        }
+    }
+}
+<br />
+<br />
+<h2>Flush sample</h2>
+<p>
+    Stuff
+    blah
+</p>
+@section content
+{
+    <ul>
+    @foreach (var value in GetStuffToPrint())
+    {
+        <li>@value</li>
+    }
+    </ul>
+}

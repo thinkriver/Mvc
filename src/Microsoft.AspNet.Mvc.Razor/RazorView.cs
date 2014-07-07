@@ -21,6 +21,11 @@ namespace Microsoft.AspNet.Mvc.Razor
         private readonly HashSet<string> _renderedSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool _renderedBody;
 
+        public RazorView()
+        {
+            SectionWriters = new Dictionary<string, HelperResult>(StringComparer.OrdinalIgnoreCase);
+        }
+
         public IViewComponentHelper Component { get; private set; }
 
         public HttpContext Context
@@ -40,7 +45,17 @@ namespace Microsoft.AspNet.Mvc.Razor
 
         public string Layout { get; set; }
 
-        protected TextWriter Output { get; set; }
+        protected TextWriter Output
+        {
+            get
+            {
+                if (ViewContext != null)
+                {
+                    return ViewContext.Writer;
+                }
+                return null;
+            }
+        }
 
         public IUrlHelper Url { get; private set; }
 
@@ -71,34 +86,30 @@ namespace Microsoft.AspNet.Mvc.Razor
 
         private Dictionary<string, HelperResult> PreviousSectionWriters { get; set; }
 
+        private TextWriter OriginalWriter { get; set; }
+
         public virtual async Task RenderAsync([NotNull] ViewContext context)
         {
-            SectionWriters = new Dictionary<string, HelperResult>(StringComparer.OrdinalIgnoreCase);
-            ViewContext = context;
-
-            InitHelpers();
-
+            // The writer for the body is passed through the ViewContext, allowing things like HtmlHelpers
+            // and ViewComponents to reference it.
+            OriginalWriter = context.Writer;
             var contentBuilder = new StringBuilder(1024);
-            using (var bodyWriter = new StringWriter(contentBuilder))
+
+            try
             {
-                Output = bodyWriter;
-
-                // The writer for the body is passed through the ViewContext, allowing things like HtmlHelpers
-                // and ViewComponents to reference it.
-                var oldWriter = context.Writer;
-
-                try
+                using (var bodyWriter = new StringWriter(contentBuilder))
                 {
                     context.Writer = bodyWriter;
-                    await ExecuteAsync();
+
+                    await RenderViewAsync(context);
 
                     // Verify that RenderBody is called, or that RenderSection is called for all sections
                     VerifyRenderedBodyOrSections();
                 }
-                finally
-                {
-                    context.Writer = oldWriter;
-                }
+            }
+            finally
+            {
+                context.Writer = OriginalWriter;
             }
 
             var bodyContent = contentBuilder.ToString();
@@ -110,6 +121,13 @@ namespace Microsoft.AspNet.Mvc.Razor
             {
                 await context.Writer.WriteAsync(bodyContent);
             }
+        }
+
+        public virtual async Task RenderViewAsync(ViewContext context)
+        {
+            ViewContext = context;
+            InitHelpers();
+            await ExecuteAsync();
         }
 
         private void InitHelpers()
@@ -126,6 +144,23 @@ namespace Microsoft.AspNet.Mvc.Razor
             {
                 contextable.Contextualize(ViewContext);
             }
+        }
+
+        public async Task Flush()
+        {
+            var stringWriter = Output as StringWriter;
+            if (stringWriter != null)
+            {
+                var body = stringWriter.ToString();
+
+                // Switch to the bufferless original stream
+                ViewContext.Writer = OriginalWriter;
+
+                await ViewContext.Writer.WriteAsync(body);
+                
+            }
+            await ViewContext.Writer.FlushAsync();
+
         }
 
         private async Task RenderLayoutAsync(ViewContext context, string bodyContent)

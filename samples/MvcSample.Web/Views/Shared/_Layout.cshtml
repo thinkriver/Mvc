@@ -26,11 +26,30 @@
     </div>
     <div class="container body-content">
         @RenderBody()
+
+        @{ await Flush();
+
+            await Task.Delay(1000);
+        }
+
+
+        @RenderSection("content", false)
+
+        @for (int i = 0; i < 10; i++)
+        {
+            { await Flush();
+                await Task.Delay(1000);
+            }
+
+<div>Waiting ...</div>
+            }
         <hr />
+
+
         <address>
             @if (@Model != null)
             {
-                @Model.Address
+            @Model.Address
             }
         </address>
         <footer>
