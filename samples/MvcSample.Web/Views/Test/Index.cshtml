@@ -1,19 +1,7 @@
 ﻿@using MvcSample.Web.Models
-@using Microsoft.Framework.DependencyInjection
 
 @model User
 
-
-
-@{
-    var __renderer = Context.RequestServices.GetService<TagHelperRenderingContext>();
-
-    ViewBag.Anon = new
-    {
-        Name = "FirstName LastName",
-        Address = new { Street = "123 Fake St.", City = "Redmond", State = "WA", Country = "USA", },
-    };
-}
 <foo bar="Name"></foo>
 <form action="index" controller="test">
     Inside of Foo

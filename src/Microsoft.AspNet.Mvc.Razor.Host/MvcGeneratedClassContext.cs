@@ -16,6 +16,25 @@ namespace Microsoft.AspNet.Mvc.Razor
                 defineSectionMethodName: "DefineSection")
 	    {
             ResolveUrlMethodName = "Href";
+            TagHelperRendererName = "__tagHelperRenderer";
+            TagHelperViewDataAccessorName = "ViewContext.ViewData";
+            TagHelperRendererAddAttributeBuilderName = "AddAttributeBuilder";
+            TagHelperRendererAddAttributeName = "AddAttribute";
+            TagHelperRendererTagBuilderName = "TagBodyWriter";
+            TagHelperRendererPrepareMethodName = "PrepareTagHelper";
+            TagHelperRendererStartMethodName = "StartTagHelper";
+            TagHelperRendererEndMethodName = "EndTagHelper";
+            TagHelperRendererOutputMethodName = "OutputTagHelper";
         }
+
+        public string TagHelperRendererName { get; set; }
+        public string TagHelperViewDataAccessorName { get; set; }
+        public string TagHelperRendererAddAttributeBuilderName { get; set; }
+        public string TagHelperRendererAddAttributeName { get; set; }
+        public string TagHelperRendererTagBuilderName { get; set; }
+        public string TagHelperRendererPrepareMethodName { get; set; }
+        public string TagHelperRendererStartMethodName { get; set; }
+        public string TagHelperRendererEndMethodName { get; set; }
+        public string TagHelperRendererOutputMethodName { get; set; }
     }
 }

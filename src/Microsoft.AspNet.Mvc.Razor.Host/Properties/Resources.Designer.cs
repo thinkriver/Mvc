@@ -10,22 +10,22 @@ namespace Microsoft.AspNet.Mvc.Razor.Host
         private static readonly ResourceManager _resourceManager
             = new ResourceManager("Microsoft.AspNet.Mvc.Razor.Host.Resources", typeof(Resources).GetTypeInfo().Assembly);
 
+        /// <summary>
         /// Argument cannot be null or empty.
         /// </summary>
-        internal static string ArgumentCannotBeNullOrEmpy
+        internal static string ArgumentCannotBeNullOrEmpty
         {
-            get { return GetString("ArgumentCannotBeNullOrEmpy"); }
+            get { return GetString("ArgumentCannotBeNullOrEmpty"); }
         }
 
         /// <summary>
         /// Argument cannot be null or empty.
         /// </summary>
-        internal static string FormatArgumentCannotBeNullOrEmpy()
+        internal static string FormatArgumentCannotBeNullOrEmpty()
         {
-            return GetString("ArgumentCannotBeNullOrEmpy");
+            return GetString("ArgumentCannotBeNullOrEmpty");
         }
 
-        /// <summary>
         private static string GetString(string name, params string[] formatterNames)
         {
             var value = _resourceManager.GetString(name);

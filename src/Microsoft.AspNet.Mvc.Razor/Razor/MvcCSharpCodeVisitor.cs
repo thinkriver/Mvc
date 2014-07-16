@@ -8,20 +8,19 @@ using Microsoft.AspNet.Razor.Generator.Compiler.CSharp;
 
 namespace Microsoft.AspNet.Mvc.Razor
 {
-    /// <summary>
-    /// Summary description for MvcCSharpCodeVisitor
-    /// </summary>
     public class MvcCSharpCodeVisitor : MvcCodeVisitor
     {
-        private const string RendererName = "__renderer";
-        
+        private string _rendererName;
         private IChunkVisitor _defaultVisitor;
         private IChunkVisitor _razorVisitor;
+        private MvcGeneratedClassContext _classContext;
 
         public MvcCSharpCodeVisitor(CSharpCodeWriter writer, CodeGeneratorContext context)
             : base(writer, context)
         {
             _razorVisitor = new CSharpCodeVisitor(writer, context);
+            _classContext = context.Host.GeneratedClassContext as MvcGeneratedClassContext;
+            _rendererName = _classContext.TagHelperRendererName;
         }
 
         // This visitor takes care of anything that is handled in the execute method body
@@ -42,15 +41,15 @@ namespace Microsoft.AspNet.Mvc.Razor
         {
             var tagHelperDescriptor = Context.Host.GeneratedTagHelperContext.GetTagHelper(chunk.TagName);
 
-            Writer.Write(RendererName)
+            Writer.Write(_rendererName)
                   .Write(".")
-                  .Write("PrepareHelper") // TODO: Extensibility point
+                  .Write(_classContext.TagHelperRendererPrepareMethodName)
                   .Write("<")
                   .Write(tagHelperDescriptor.TagHelperName)
                   .Write(">(")
                   .WriteStringLiteral(tagHelperDescriptor.TagName)
                   .WriteParameterSeparator()
-                  .Write("ViewContext.ViewData") // TODO: Extensibility point
+                  .Write(_classContext.TagHelperViewDataAccessorName)
                   .WriteLine(");");
 
             var tagAttributes = chunk.Attributes;
@@ -60,9 +59,9 @@ namespace Microsoft.AspNet.Mvc.Razor
             {
                 var mvcAttribute = attribute as MvcTagHelperAttributeInfo;
 
-                Writer.Write(RendererName)
+                Writer.Write(_rendererName)
                       .Write(".")
-                      .Write("AddAttributeBuilder") // TODO: Extensibility point
+                      .Write(_classContext.TagHelperRendererAddAttributeBuilderName)
                       .Write("(")
                       .WriteStringLiteral(mvcAttribute.AttributeName)
                       .WriteParameterSeparator();
@@ -93,9 +92,9 @@ namespace Microsoft.AspNet.Mvc.Razor
             // Build out the attributes for the tag builder
             foreach(var attribute in tagAttributes)
             {
-                Writer.Write(RendererName)
+                Writer.Write(_rendererName)
                       .Write(".")
-                      .Write("AddAttribute") // TODO: Extensibility point
+                      .Write(_classContext.TagHelperRendererAddAttributeName)
                       .Write("(")
                       .WriteStringLiteral(attribute.Key)
                       .WriteParameterSeparator();
@@ -110,12 +109,12 @@ namespace Microsoft.AspNet.Mvc.Razor
                 Writer.WriteEndMethodInvocation();
             }
 
-            Writer.Write(RendererName)
+            Writer.Write(_rendererName)
                   .Write(".")
-                  .WriteMethodInvocation("StartHelper");
+                  .WriteMethodInvocation(_classContext.TagHelperRendererStartMethodName);
 
             var currentWriter = Context.TargetWriterName;
-            Context.TargetWriterName = RendererName + "." + "TagBodyWriter"; // TODO: TagBodyWriter is extensibility point
+            Context.TargetWriterName = _rendererName + "." + _classContext.TagHelperRendererTagBuilderName;
 
             // Render all of the children
             BodyVisitor.Accept(chunk.Children);
@@ -123,9 +122,9 @@ namespace Microsoft.AspNet.Mvc.Razor
             Context.TargetWriterName = currentWriter;
 
             Writer.Write("if (")
-                  .Write(RendererName)
+                  .Write(_rendererName)
                   .Write(".")
-                  .WriteMethodInvocation("EndHelper", endLine: false)
+                  .WriteMethodInvocation(_classContext.TagHelperRendererEndMethodName, endLine: false)
                   .WriteLine(")");
 
             using (Writer.BuildScope())
@@ -141,9 +140,9 @@ namespace Microsoft.AspNet.Mvc.Razor
                     Writer.WriteStartMethodInvocation(Context.Host.GeneratedClassContext.WriteLiteralMethodName);
                 }
 
-                Writer.Write(RendererName)
+                Writer.Write(_rendererName)
                       .Write(".")
-                      .WriteMethodInvocation("OutputHelper", endLine: false) // TODO: Extensibility point
+                      .WriteMethodInvocation(_classContext.TagHelperRendererOutputMethodName, endLine: false)
                       .WriteEndMethodInvocation();
             }
         }

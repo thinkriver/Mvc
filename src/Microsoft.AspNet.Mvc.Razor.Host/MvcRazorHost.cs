@@ -80,34 +80,7 @@ namespace Microsoft.AspNet.Mvc.Razor
 
         public override CodeBuilder DecorateCodeBuilder(CodeBuilder incomingBuilder, CodeGeneratorContext context)
         {
-            UpdateCodeBuilder(context);
-            return _codeBuilderProvider.GetCodeBuilder(incomingBuilder, context);
-        }
-
-        private void UpdateCodeBuilder(CodeGeneratorContext context)
-        {
-            var currentChunks = context.CodeTreeBuilder.CodeTree.Chunks;
-            var existingInjects = new HashSet<string>(currentChunks.OfType<InjectChunk>()
-                                                                   .Select(c => c.MemberName),
-                                                      StringComparer.Ordinal);
-
-            var modelChunk = currentChunks.OfType<ModelChunk>()
-                                          .LastOrDefault();
-            var model = _hostOptions.DefaultModel;
-            if (modelChunk != null)
-            {
-                model = modelChunk.ModelType;
-            }
-            model = '<' + model + '>';
-
-            // Locate properties by name that haven't already been injected in to the View.
-            var propertiesToAdd = _hostOptions.DefaultInjectedProperties
-                                              .Where(c => !existingInjects.Contains(c.MemberName));
-            foreach (var property in propertiesToAdd)
-            {
-                var typeName = property.TypeName.Replace("<TModel>", model);
-                currentChunks.Add(new InjectChunk(typeName, property.MemberName));
-            }
+            return _codeBuilderProvider.GetCodeBuilder(incomingBuilder, _hostOptions, context);
         }
     }
 }

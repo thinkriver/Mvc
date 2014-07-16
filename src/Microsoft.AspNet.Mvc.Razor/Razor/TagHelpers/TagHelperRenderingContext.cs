@@ -34,7 +34,7 @@ namespace Microsoft.AspNet.Mvc.Razor
         public IModelMetadataProvider MetadataProvider { get; private set; }
         public TagBuilderStringWriter TagBodyWriter { get; private set; }
 
-        public void PrepareHelper<T>(string tagName, ViewDataDictionary viewData) where T : MvcTagHelper
+        public void PrepareTagHelper<T>(string tagName, ViewDataDictionary viewData) where T : MvcTagHelper
         {
             _currentTagBuilder = new TagBuilder(tagName);
             _tagBuilders.Push(_currentTagBuilder);
@@ -47,12 +47,12 @@ namespace Microsoft.AspNet.Mvc.Razor
             _tagHelper = _typeActivator.CreateInstance<T>(_serviceProvider);
         }
 
-        public void StartHelper()
+        public void StartTagHelper()
         {
             _tagHelper.Process(_currentTagBuilder, _currentTagHelperContext);
         }
 
-        public bool EndHelper()
+        public bool EndTagHelper()
         {
             _tagBuilders.Pop();
             _tagBodyWriters.Pop();
@@ -69,7 +69,7 @@ namespace Microsoft.AspNet.Mvc.Razor
             return true;
         }
 
-        public string OutputHelper()
+        public string OutputTagHelper()
         {
             return _currentTagBuilder.ToString();
         }
