@@ -54,7 +54,7 @@
     <Compile Include="Razor\RazorCompilationService.cs" />
     <Compile Include="Razor\TagHelpers\DefaultTagHelperSelector.cs" />
     <Compile Include="Razor\TagHelpers\ITagHelperSelector.cs" />
-    <Compile Include="Razor\TagHelpers\MvcGeneratedTagHelperContext.cs" />
+    <Compile Include="Razor\TagHelpers\MvcTagHelperProviderContext.cs" />
     <Compile Include="Razor\TagHelpers\MvcTagHelper.cs" />
     <Compile Include="Razor\TagHelpers\MvcTagHelperAttributeInfo.cs" />
     <Compile Include="Razor\TagHelpers\MvcTagHelperAttributeType.cs" />

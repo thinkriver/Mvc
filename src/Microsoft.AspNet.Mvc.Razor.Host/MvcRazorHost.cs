@@ -40,7 +40,7 @@ namespace Microsoft.AspNet.Mvc.Razor
         public MvcRazorHost(IRazorBaseTypeResolver baseTypeResolver,
                             IRazorCodeBuilderProvider codeBuilderProvider,
                             IRazorCodeParserProvider parserProvider,
-                            IGeneratedTagHelperContext generatedTagHelperContext)
+                            ITagHelperProviderContext generatedTagHelperContext)
             : base(new CSharpRazorCodeLanguage())
         {
             // TODO: this needs to flow from the application rather than being initialized here.

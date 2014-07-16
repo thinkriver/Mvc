@@ -40,7 +40,7 @@ namespace Microsoft.AspNet.Mvc
             yield return describe.Transient<IControllerAssemblyProvider, DefaultControllerAssemblyProvider>();
             yield return describe.Transient<IActionDiscoveryConventions, DefaultActionDiscoveryConventions>();
 
-            yield return describe.Transient<IGeneratedTagHelperContext, MvcGeneratedTagHelperContext>();
+            yield return describe.Transient<ITagHelperProviderContext, MvcTagHelperProviderContext>();
             yield return describe.Transient<IRazorCodeBuilderProvider, DefaultRazorCodeBuilderProvider>();
             yield return describe.Transient<IRazorCodeParserProvider, DefaultRazorCodeParserProvider>();
             yield return describe.Transient<IRazorBaseTypeResolver, DefaultRazorBaseTypeResolver>();

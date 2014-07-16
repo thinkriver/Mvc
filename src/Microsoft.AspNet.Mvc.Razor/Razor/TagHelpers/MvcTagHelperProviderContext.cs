@@ -3,11 +3,11 @@ using Microsoft.AspNet.Razor.TagHelpers;
 
 namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 {
-    public class MvcGeneratedTagHelperContext : IGeneratedTagHelperContext
+    public class MvcTagHelperProviderContext : ITagHelperProviderContext
     {
         private ITagHelperSelector _selector;
 
-	    public MvcGeneratedTagHelperContext(ITagHelperSelector selector)
+	    public MvcTagHelperProviderContext(ITagHelperSelector selector)
 	    {
             _selector = selector;
 	    }
