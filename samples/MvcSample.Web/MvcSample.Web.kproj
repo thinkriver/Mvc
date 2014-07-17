@@ -69,6 +69,7 @@
     <Compile Include="SimplePocoController.cs" />
     <Compile Include="SimpleRest.cs" />
     <Compile Include="Startup.cs" />
+    <Compile Include="TagHelpers\ButtonTagHelper.cs" />
     <Compile Include="TagHelpers\DivTagHelper.cs" />
     <Compile Include="TagHelpers\FooTagHelper.cs" />
     <Compile Include="TagHelpers\FormTagHelper.cs" />

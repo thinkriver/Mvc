@@ -12,12 +12,6 @@ namespace Microsoft.AspNet.Mvc.Razor
                                           MvcRazorHostOptions options, 
                                           CodeGeneratorContext context)
         {
-            // TODO: Move this out to somewhere else.  See #774
-            options.DefaultInjectedProperties.Add(
-                new InjectDescriptor(
-                    typeof(TagHelperRenderingContext).FullName,
-                    (context.Host.GeneratedClassContext as MvcGeneratedClassContext).TagHelperRendererName));
-
             AddDefaultInjectedProperties(context, options);
 
             return new MvcCSharpCodeBuilder(context, options);

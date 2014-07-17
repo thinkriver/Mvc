@@ -10,6 +10,7 @@ namespace Microsoft.AspNet.Mvc.Razor
 {
     public class MvcCSharpCodeVisitor : MvcCodeVisitor
     {
+        private const string TagHelperAttributeWriter = "__attributeWriter";
         private string _rendererName;
         private IChunkVisitor _defaultVisitor;
         private IChunkVisitor _razorVisitor;
@@ -28,7 +29,7 @@ namespace Microsoft.AspNet.Mvc.Razor
         {
             get
             {
-                if(_defaultVisitor == null)
+                if (_defaultVisitor == null)
                 {
                     _defaultVisitor = Context.VisitorProvider.ProvideBodyVisitor(Writer);
                 }
@@ -53,9 +54,10 @@ namespace Microsoft.AspNet.Mvc.Razor
                   .WriteLine(");");
 
             var tagAttributes = chunk.Attributes;
+            string currentWriter;
 
             // Build out attributes that the tag helper expects
-            foreach(var attribute in tagHelperDescriptor.Attributes)
+            foreach (var attribute in tagHelperDescriptor.Attributes)
             {
                 var mvcAttribute = attribute as MvcTagHelperAttributeInfo;
 
@@ -66,31 +68,39 @@ namespace Microsoft.AspNet.Mvc.Razor
                       .WriteStringLiteral(mvcAttribute.AttributeName)
                       .WriteParameterSeparator();
 
-                if (mvcAttribute.AttributeType == MvcTagHelperAttributeType.Text)
+                using (Writer.BuildLambda(endLine: false, parameterNames: TagHelperAttributeWriter))
                 {
-                    Writer.WriteStartNewObject(typeof(TagHelperLiteralExpression).FullName);
+                    currentWriter = Context.TargetWriterName;
+                    Context.TargetWriterName = TagHelperAttributeWriter;
+
+                    // TODO: Validate that the user provided the tag helper's attributes?
+                    BodyVisitor.Accept(tagAttributes[mvcAttribute.AttributeName]);
+                    // Remove attributes that are part of the tag helper
+                    tagAttributes.Remove(mvcAttribute.AttributeName);
+
+                    Context.TargetWriterName = currentWriter;
+
+                    Writer.WriteStartReturn();
+
+                    if (mvcAttribute.AttributeType == MvcTagHelperAttributeType.Text)
+                    {
+                        Writer.WriteStartNewObject(typeof(TagHelperLiteralExpression).FullName);
+                    }
+                    else if (mvcAttribute.AttributeType == MvcTagHelperAttributeType.Expression)
+                    {
+                        Writer.WriteStartNewObject(typeof(TagHelperModelExpression).FullName);
+                    }
+
+                    Writer.Write(TagHelperAttributeWriter)
+                          .WriteLine(".ToString()")
+                          .WriteEndMethodInvocation();
                 }
-                else if(mvcAttribute.AttributeType == MvcTagHelperAttributeType.Expression)
-                {
-                    Writer.WriteStartNewObject(typeof(TagHelperModelExpression).FullName);
-                }
 
-                // TODO: Validate that the user provided the tag helper's attributes?
-                var currentRenderingMode = Context.RenderingMode;
-                Context.RenderingMode = RenderingMode.InjectCode;
-
-                BodyVisitor.Accept(tagAttributes[mvcAttribute.AttributeName]);
-                // Remove attributes that are part of the tag helper
-                tagAttributes.Remove(mvcAttribute.AttributeName);
-
-                Context.RenderingMode = currentRenderingMode;
-
-                Writer.WriteEndMethodInvocation(endLine: false)
-                      .WriteEndMethodInvocation();
+                Writer.WriteEndMethodInvocation();
             }
 
             // Build out the attributes for the tag builder
-            foreach(var attribute in tagAttributes)
+            foreach (var attribute in tagAttributes)
             {
                 Writer.Write(_rendererName)
                       .Write(".")
@@ -99,12 +109,19 @@ namespace Microsoft.AspNet.Mvc.Razor
                       .WriteStringLiteral(attribute.Key)
                       .WriteParameterSeparator();
 
-                var currentRenderingMode = Context.RenderingMode;
-                Context.RenderingMode = RenderingMode.InjectCode;
+                using (Writer.BuildLambda(endLine: false, parameterNames: TagHelperAttributeWriter))
+                {
+                    currentWriter = Context.TargetWriterName;
+                    Context.TargetWriterName = TagHelperAttributeWriter;
 
-                BodyVisitor.Accept(attribute.Value);
+                    BodyVisitor.Accept(attribute.Value);
 
-                Context.RenderingMode = currentRenderingMode;
+                    Context.TargetWriterName = currentWriter;
+
+                    Writer.WriteStartReturn()
+                          .Write(TagHelperAttributeWriter)
+                          .WriteLine(".ToString();");
+                }
 
                 Writer.WriteEndMethodInvocation();
             }
@@ -113,7 +130,7 @@ namespace Microsoft.AspNet.Mvc.Razor
                   .Write(".")
                   .WriteMethodInvocation(_classContext.TagHelperRendererStartMethodName);
 
-            var currentWriter = Context.TargetWriterName;
+            currentWriter = Context.TargetWriterName;
             Context.TargetWriterName = _rendererName + "." + _classContext.TagHelperRendererTagBuilderName;
 
             // Render all of the children

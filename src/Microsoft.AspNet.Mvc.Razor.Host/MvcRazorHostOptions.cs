@@ -16,6 +16,8 @@ namespace Microsoft.AspNet.Mvc.Razor
             ActivateAttributeName = "Microsoft.AspNet.Mvc.ActivateAttribute";
             DefaultInjectedProperties = new List<InjectDescriptor>()
             {
+                // TODO: Replace once #774 is done
+                new InjectDescriptor("Microsoft.AspNet.Mvc.Razor.TagHelperRenderingContext", "__tagHelperRenderer"),
                 new InjectDescriptor("Microsoft.AspNet.Mvc.Rendering.IHtmlHelper<TModel>", "Html")
             };
         }

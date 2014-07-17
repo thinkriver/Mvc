@@ -6,6 +6,7 @@ using Microsoft.AspNet.Mvc.Rendering;
 using Microsoft.AspNet.Mvc.ModelBinding;
 using Microsoft.AspNet.Mvc.Razor.TagHelpers;
 using System.Linq;
+using System.IO;
 
 namespace Microsoft.AspNet.Mvc.Razor
 {
@@ -74,14 +75,14 @@ namespace Microsoft.AspNet.Mvc.Razor
             return _currentTagBuilder.ToString();
         }
 
-        public void AddAttributeBuilder(string name, MvcTagHelperExpression expression)
+        public void AddAttributeBuilder(string name, Func<TextWriter, MvcTagHelperExpression> expressionBuilder)
         {
-            _currentTagHelperContext.AttributeExpressionBuilders.Add(name, expression);
+            _currentTagHelperContext.AttributeExpressionBuilders.Add(name, expressionBuilder(new StringWriter()));
         }
 
-        public void AddAttribute(string name, string value)
+        public void AddAttribute(string name, Func<TextWriter, string> valueBuilder)
         {
-            _currentTagBuilder.Attributes.Add(name, value);
+            _currentTagBuilder.Attributes.Add(name, valueBuilder(new StringWriter()));
         }
     }
 }
