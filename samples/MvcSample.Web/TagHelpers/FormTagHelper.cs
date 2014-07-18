@@ -16,29 +16,12 @@ namespace MvcSample.Web
             _urlHelper = urlHelper;
         }
 
-        public override MvcTagHelperAttributeInfo[] Attributes
-        {
-            get
-            {
-                return new[]
-                {
-                    new MvcTagHelperAttributeInfo("action")
-                    {
-                        AttributeType = MvcTagHelperAttributeType.Text
-                    },
-                    new MvcTagHelperAttributeInfo("controller")
-                    {
-                        AttributeType = MvcTagHelperAttributeType.Text
-                    },
-                };
-            }
-        }
+        public TagHelperLiteralExpression Action { get; set; }
+        public TagHelperLiteralExpression Controller { get; set; }
 
         public override void Process(TagBuilder builder, MvcTagHelperContext context)
         {
-            builder.Attributes.Add("action", _urlHelper.Action(
-                context.AttributeExpressionBuilders["action"].Build(context),
-                context.AttributeExpressionBuilders["controller"].Build(context)));
+            builder.Attributes.Add("action", _urlHelper.Action(Action.Build(context), Controller.Build(context)));
             builder.Attributes.Add("method", "post");
             builder.InnerHtml = "<input type=\"hidden\" value=\"something\" />";
         }

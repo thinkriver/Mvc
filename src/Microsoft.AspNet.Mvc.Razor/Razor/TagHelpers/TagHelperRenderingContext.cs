@@ -14,9 +14,9 @@ namespace Microsoft.AspNet.Mvc.Razor
         private Stack<TagBuilder> _tagBuilders;
         private TagBuilder _currentTagBuilder;
         private MvcTagHelperContext _currentTagHelperContext;
-        private List<MvcTagHelper> _tagHelpers;
         private IServiceProvider _serviceProvider;
         private ITypeActivator _typeActivator;
+        private IDictionary<string, MvcTagHelperExpression> _attributeBuilders;
 
         public TagHelperRenderingContext(IModelMetadataProvider metadataProvider, 
                                          IServiceProvider serviceProvider,
@@ -27,33 +27,30 @@ namespace Microsoft.AspNet.Mvc.Razor
             _serviceProvider = serviceProvider;
             _typeActivator = typeActivator;
             _tagBuilders = new Stack<TagBuilder>();
-            _tagHelpers = new List<MvcTagHelper>();
+            _attributeBuilders = new Dictionary<string, MvcTagHelperExpression>(StringComparer.OrdinalIgnoreCase);
         }
 
         public IModelMetadataProvider MetadataProvider { get; private set; }
 
-        public void PrepareTagHelper(string tagName, Type[] tagHelperTypes, ViewContext viewContext)
+        public void PrepareTagHelper(string tagName, ViewContext viewContext)
         {
             _currentTagBuilder = new TagBuilder(tagName);
             _tagBuilders.Push(_currentTagBuilder);
 
             _currentTagHelperContext = new MvcTagHelperContext(viewContext, MetadataProvider);
-
-            foreach (var tagHelperType in tagHelperTypes)
-            {
-                _tagHelpers.Add((MvcTagHelper)_typeActivator.CreateInstance(_serviceProvider, tagHelperType));
-            }
         }
 
-        public string StartTagHelper()
+        public string StartTagHelper(Type[] tagHelperTypes)
         {
-            foreach(var tagHelper in _tagHelpers)
+            foreach (var tagHelperType in tagHelperTypes)
             {
+                var tagHelper = BuildTagHelper(tagHelperType);
+
                 tagHelper.Process(_currentTagBuilder, _currentTagHelperContext);
             }
 
-            // Remove all tag helpers, no need to track them anymore
-            _tagHelpers.Clear();
+            // Remove all tag attribute builders, no need to track them anymore
+            _attributeBuilders.Clear();
 
             // We render the start tag and the body
             return _currentTagBuilder.ToString(TagRenderMode.StartTag) + _currentTagBuilder.ToString(TagRenderMode.Body);
@@ -75,12 +72,26 @@ namespace Microsoft.AspNet.Mvc.Razor
 
         public void AddAttributeBuilder(string name, Func<TextWriter, MvcTagHelperExpression> expressionBuilder)
         {
-            _currentTagHelperContext.AttributeExpressionBuilders.Add(name, expressionBuilder(new StringWriter()));
+            _attributeBuilders.Add(name, expressionBuilder(new StringWriter()));
         }
 
         public void AddAttribute(string name, Func<TextWriter, string> valueBuilder)
         {
             _currentTagBuilder.Attributes.Add(name, valueBuilder(new StringWriter()));
+        }
+
+        private MvcTagHelper BuildTagHelper(Type tagHelperType)
+        {
+            var tagHelper = (MvcTagHelper)_typeActivator.CreateInstance(_serviceProvider, tagHelperType);
+
+            foreach(var attributeBuilder in _attributeBuilders)
+            {
+                // TODO: Cache these
+                var setter = PropertyHelper.MakeFastPropertySetter(tagHelper.GetType().GetProperty(attributeBuilder.Key));
+                setter(tagHelper, attributeBuilder.Value);
+            }
+
+            return tagHelper;
         }
     }
 }

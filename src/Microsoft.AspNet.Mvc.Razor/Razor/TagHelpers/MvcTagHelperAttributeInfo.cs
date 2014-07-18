@@ -10,6 +10,6 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
         {
         }
 
-        public MvcTagHelperAttributeType AttributeType { get; set; }
+        public Type AttributeExpressionType { get; set; }
     }
 }

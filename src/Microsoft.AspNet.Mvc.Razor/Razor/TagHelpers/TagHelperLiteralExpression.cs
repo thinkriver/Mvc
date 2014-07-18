@@ -2,11 +2,10 @@
 
 namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 {
-    /// <summary>
-    /// Summary description for TagHelperLiteralExpression
-    /// </summary>
     public class TagHelperLiteralExpression : MvcTagHelperExpression
     {
+        public static readonly string FullName = typeof(TagHelperLiteralExpression).FullName;
+
         public TagHelperLiteralExpression(string literal)
         {
             Literal = literal;

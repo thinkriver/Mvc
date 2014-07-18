@@ -10,6 +10,8 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 {
     public class TagHelperModelExpression : MvcTagHelperExpression
     {
+        public static readonly string FullName = typeof(TagHelperModelExpression).FullName;
+
         public TagHelperModelExpression(string expression)
         {
             Expression = expression;

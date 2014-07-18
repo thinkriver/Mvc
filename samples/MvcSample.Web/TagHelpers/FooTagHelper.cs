@@ -13,24 +13,12 @@ namespace MvcSample.Web
         {
         }
 
-        public override MvcTagHelperAttributeInfo[] Attributes
-        {
-            get
-            {
-                return new[]
-                {
-                    new MvcTagHelperAttributeInfo("bar")
-                    {
-                        AttributeType = MvcTagHelperAttributeType.Expression
-                    }
-                };
-            }
-        }
+        public TagHelperModelExpression Bar { get; set; }
 
         public override void Process(TagBuilder builder, MvcTagHelperContext context)
         {
             builder.TagName = "h1";
-            builder.InnerHtml = context.AttributeExpressionBuilders["bar"].Build(context);
+            builder.InnerHtml = Bar.Build(context);
         }
     }
 }

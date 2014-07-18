@@ -11,14 +11,6 @@ namespace MvcSample.Web
 	    {
 	    }
 
-        public override MvcTagHelperAttributeInfo[] Attributes
-        {
-            get
-            {
-                return new MvcTagHelperAttributeInfo[0];
-            }
-        }
-
         public override void Process(TagBuilder builder, MvcTagHelperContext context)
         {
             builder.TagName = "em";

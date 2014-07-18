@@ -17,5 +17,10 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 
             return typeof(MvcTagHelper).IsAssignableFrom(typeInfo);
         }
+
+        public static bool IsTagHelperAttribute([NotNull] PropertyInfo propertyInfo)
+        {
+            return typeof(MvcTagHelperExpression).IsAssignableFrom(propertyInfo.PropertyType);
+        }
     }
 }

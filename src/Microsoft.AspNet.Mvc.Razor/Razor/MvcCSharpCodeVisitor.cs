@@ -47,12 +47,6 @@ namespace Microsoft.AspNet.Mvc.Razor
                   .WriteStartMethodInvocation(_classContext.TagHelperRendererPrepareMethodName)
                   .WriteStringLiteral(chunk.TagName)
                   .WriteParameterSeparator()
-                  .Write("new ")
-                  .Write(typeof(Type).FullName)
-                  .Write("[] { ")
-                  .Write(string.Join(", ", tagHelperDescriptors.Select(thd => "typeof(" + thd.TagHelperName + ")")))
-                  .Write(" }")
-                  .WriteParameterSeparator() 
                   .Write(_classContext.TagHelperViewContextAccessor)
                   .WriteEndMethodInvocation()
                   .WriteLine(); // This line is for readability
@@ -86,17 +80,17 @@ namespace Microsoft.AspNet.Mvc.Razor
 
                     Writer.WriteStartReturn();
 
-                    if (mvcAttribute.AttributeType == MvcTagHelperAttributeType.Text)
+                    if (mvcAttribute.AttributeExpressionType.FullName == TagHelperLiteralExpression.FullName)
                     {
                         Writer.WriteStartNewObject(typeof(TagHelperLiteralExpression).FullName);
                     }
-                    else if (mvcAttribute.AttributeType == MvcTagHelperAttributeType.Expression)
+                    else if (mvcAttribute.AttributeExpressionType.FullName == TagHelperModelExpression.FullName)
                     {
                         Writer.WriteStartNewObject(typeof(TagHelperModelExpression).FullName);
                     }
 
                     Writer.Write(TagHelperAttributeWriter)
-                          .WriteLine(".ToString()")
+                          .Write(".ToString()")
                           .WriteEndMethodInvocation();
                 }
 
@@ -134,7 +128,13 @@ namespace Microsoft.AspNet.Mvc.Razor
 
             GeneratePreWriteStart().Write(_rendererName)
                                    .Write(".")
-                                   .WriteMethodInvocation(_classContext.TagHelperRendererStartMethodName, endLine: false)
+                                   .WriteStartMethodInvocation(_classContext.TagHelperRendererStartMethodName)
+                                   .Write("new ")
+                                   .Write(typeof(Type).FullName)
+                                   .Write("[] { ")
+                                   .Write(string.Join(", ", tagHelperDescriptors.Select(thd => "typeof(" + thd.TagHelperName + ")")))
+                                   .Write(" }")
+                                   .WriteEndMethodInvocation(endLine: false)
                                    .WriteEndMethodInvocation();
 
             Writer.WriteLine().WriteComment("++++++++++++++++ '" + chunk.TagName + "' Tag Helper Body START ++++++++++++++++").WriteLine(); // TODO: Remove, this is for tag helper readability

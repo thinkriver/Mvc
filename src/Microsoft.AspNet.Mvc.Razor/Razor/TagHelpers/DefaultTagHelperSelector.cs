@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections.Generic;
 using Microsoft.AspNet.Razor.TagHelpers;
 using Microsoft.Framework.DependencyInjection;
+using System.Reflection;
 
 namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 {
@@ -62,9 +63,21 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
         {
             var tagHelper = _typeActivator.CreateInstance(_serviceProvider, type) as MvcTagHelper;
             var tagHelperName = type.FullName;
+            var tagHelperAttributes = GetTagHelperAttributes(type);
 
             return tagHelper.Targets.Select(tagName => 
-                new MvcTagHelperDescriptor(tagName, tagHelperName, tagHelper.Attributes));
+                new MvcTagHelperDescriptor(tagName, tagHelperName, tagHelperAttributes));
+        }
+
+        private IEnumerable<MvcTagHelperAttributeInfo> GetTagHelperAttributes(Type type)
+        {
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            // TODO: Validate there's a set property?
+            return properties.Where(TagHelperConventions.IsTagHelperAttribute)
+                             .Select(info => new MvcTagHelperAttributeInfo(info.Name)
+                             {
+                                 AttributeExpressionType = info.PropertyType
+                             });
         }
     }
 }

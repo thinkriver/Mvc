@@ -6,11 +6,6 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 {
     public class MvcTagHelperDescriptor : TagHelperDescriptor
     {
-	    public MvcTagHelperDescriptor(string tagName, string tagHelperName)
-            : base(tagName, tagHelperName)
-	    {
-	    }
-
         public MvcTagHelperDescriptor(string tagName, 
                                       string tagHelperName, 
                                       IEnumerable<TagHelperAttributeInfo> attributes)
