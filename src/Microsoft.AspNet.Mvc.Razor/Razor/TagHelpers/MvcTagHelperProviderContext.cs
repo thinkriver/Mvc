@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNet.Razor.TagHelpers;
 
 namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
@@ -12,9 +14,9 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
             _selector = selector;
 	    }
 
-        public TagHelperDescriptor GetTagHelper(string tagName)
+        public IEnumerable<TagHelperDescriptor> GetTagHelpers(string tagName)
         {
-            return _selector.SelectTagHelper(tagName);
+            return _selector.SelectTagHelper(tagName) ?? Enumerable.Empty<TagHelperDescriptor>();
         }
     }
 }

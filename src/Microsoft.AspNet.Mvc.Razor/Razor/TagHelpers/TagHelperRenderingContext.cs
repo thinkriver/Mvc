@@ -14,7 +14,7 @@ namespace Microsoft.AspNet.Mvc.Razor
         private Stack<TagBuilder> _tagBuilders;
         private TagBuilder _currentTagBuilder;
         private MvcTagHelperContext _currentTagHelperContext;
-        private MvcTagHelper _tagHelper;
+        private List<MvcTagHelper> _tagHelpers;
         private IServiceProvider _serviceProvider;
         private ITypeActivator _typeActivator;
 
@@ -27,23 +27,33 @@ namespace Microsoft.AspNet.Mvc.Razor
             _serviceProvider = serviceProvider;
             _typeActivator = typeActivator;
             _tagBuilders = new Stack<TagBuilder>();
+            _tagHelpers = new List<MvcTagHelper>();
         }
 
         public IModelMetadataProvider MetadataProvider { get; private set; }
 
-        public void PrepareTagHelper<T>(string tagName, ViewContext viewContext) where T : MvcTagHelper
+        public void PrepareTagHelper(string tagName, Type[] tagHelperTypes, ViewContext viewContext)
         {
             _currentTagBuilder = new TagBuilder(tagName);
             _tagBuilders.Push(_currentTagBuilder);
 
             _currentTagHelperContext = new MvcTagHelperContext(viewContext, MetadataProvider);
 
-            _tagHelper = _typeActivator.CreateInstance<T>(_serviceProvider);
+            foreach (var tagHelperType in tagHelperTypes)
+            {
+                _tagHelpers.Add((MvcTagHelper)_typeActivator.CreateInstance(_serviceProvider, tagHelperType));
+            }
         }
 
         public string StartTagHelper()
         {
-            _tagHelper.Process(_currentTagBuilder, _currentTagHelperContext);
+            foreach(var tagHelper in _tagHelpers)
+            {
+                tagHelper.Process(_currentTagBuilder, _currentTagHelperContext);
+            }
+
+            // Remove all tag helpers, no need to track them anymore
+            _tagHelpers.Clear();
 
             // We render the start tag and the body
             return _currentTagBuilder.ToString(TagRenderMode.StartTag) + _currentTagBuilder.ToString(TagRenderMode.Body);

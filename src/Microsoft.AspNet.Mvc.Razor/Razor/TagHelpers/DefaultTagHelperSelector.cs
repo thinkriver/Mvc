@@ -11,7 +11,7 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
         private ITypeActivator _typeActivator;
         private IServiceProvider _serviceProvider;
         private IControllerAssemblyProvider _assemblyProvider;
-        private IDictionary<string, MvcTagHelperDescriptor> _tagHelperCache;
+        private IDictionary<string, List<MvcTagHelperDescriptor>> _tagHelperCache;
 
         public DefaultTagHelperSelector(IControllerAssemblyProvider assemblyProvider,
                                         ITypeActivator typeActivator,
@@ -22,7 +22,7 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
             _assemblyProvider = assemblyProvider;
         }
 
-        public MvcTagHelperDescriptor SelectTagHelper([NotNull]string tagName)
+        public IEnumerable<MvcTagHelperDescriptor> SelectTagHelper([NotNull] string tagName)
         {
             if(_tagHelperCache == null)
             {
@@ -31,16 +31,16 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 
             // TODO: Validate that the tag exists inthe cache
 
-            MvcTagHelperDescriptor descriptor = null;
+            List<MvcTagHelperDescriptor> descriptors = null;
 
-            _tagHelperCache.TryGetValue(tagName, out descriptor);
+            _tagHelperCache.TryGetValue(tagName, out descriptors);
 
-            return descriptor;
+            return descriptors;
         }
 
         private void BuildTagHelperCache()
         {
-            _tagHelperCache = new Dictionary<string, MvcTagHelperDescriptor>();
+            _tagHelperCache = new Dictionary<string, List<MvcTagHelperDescriptor>>();
 
             var assemblies = _assemblyProvider.CandidateAssemblies;
             var types = assemblies.SelectMany(a => a.DefinedTypes);
@@ -49,7 +49,12 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
 
             foreach(var descriptor in descriptors)
             {
-                _tagHelperCache.Add(descriptor.TagName, descriptor);
+                if(!_tagHelperCache.ContainsKey(descriptor.TagName))
+                {
+                    _tagHelperCache[descriptor.TagName] = new List<MvcTagHelperDescriptor>();
+                }
+
+                _tagHelperCache[descriptor.TagName].Add(descriptor);
             }
         }
 

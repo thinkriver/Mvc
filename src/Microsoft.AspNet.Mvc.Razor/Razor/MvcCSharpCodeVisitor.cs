@@ -40,16 +40,19 @@ namespace Microsoft.AspNet.Mvc.Razor
 
         protected override void Visit(TagHelperChunk chunk)
         {
-            var tagHelperDescriptor = Context.Host.GeneratedTagHelperContext.GetTagHelper(chunk.TagName);
+            var tagHelperDescriptors = Context.Host.GeneratedTagHelperContext.GetTagHelpers(chunk.TagName);
 
             Writer.Write(_rendererName)
                   .Write(".")
-                  .Write(_classContext.TagHelperRendererPrepareMethodName)
-                  .Write("<")
-                  .Write(tagHelperDescriptor.TagHelperName)
-                  .Write(">(")
-                  .WriteStringLiteral(tagHelperDescriptor.TagName)
+                  .WriteStartMethodInvocation(_classContext.TagHelperRendererPrepareMethodName)
+                  .WriteStringLiteral(chunk.TagName)
                   .WriteParameterSeparator()
+                  .Write("new ")
+                  .Write(typeof(Type).FullName)
+                  .Write("[] { ")
+                  .Write(string.Join(", ", tagHelperDescriptors.Select(thd => "typeof(" + thd.TagHelperName + ")")))
+                  .Write(" }")
+                  .WriteParameterSeparator() 
                   .Write(_classContext.TagHelperViewContextAccessor)
                   .WriteEndMethodInvocation()
                   .WriteLine(); // This line is for readability
@@ -58,7 +61,7 @@ namespace Microsoft.AspNet.Mvc.Razor
             string currentWriter;
 
             // Build out attributes that the tag helper expects
-            foreach (var attribute in tagHelperDescriptor.Attributes)
+            foreach (var attribute in tagHelperDescriptors.SelectMany(thd => thd.Attributes))
             {
                 var mvcAttribute = attribute as MvcTagHelperAttributeInfo;
 
