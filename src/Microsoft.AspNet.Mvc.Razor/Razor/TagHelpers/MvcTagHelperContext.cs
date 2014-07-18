@@ -9,10 +9,10 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
     /// </summary>
     public class MvcTagHelperContext : TagHelperContext
     {
-        public MvcTagHelperContext(ViewDataDictionary viewData, IModelMetadataProvider metadataProvider)
+        public MvcTagHelperContext(ViewContext viewContext, IModelMetadataProvider metadataProvider)
             : base()
         {
-            ViewData = viewData;
+            ViewContext = viewContext;
             MetadataProvider = metadataProvider;
         }
 
@@ -23,7 +23,14 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
                 return ViewData.Model;
             }
         }
-        public ViewDataDictionary ViewData { get; private set; }
+        public ViewContext ViewContext { get; set; }
+        public ViewDataDictionary ViewData
+        {
+            get
+            {
+                return ViewContext.ViewData;
+            }
+        }
         public IModelMetadataProvider MetadataProvider { get; private set; }
     }
 }

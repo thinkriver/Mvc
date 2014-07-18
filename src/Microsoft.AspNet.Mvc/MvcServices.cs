@@ -85,7 +85,7 @@ namespace Microsoft.AspNet.Mvc
             yield return describe.Transient<IViewComponentInvokerFactory, DefaultViewComponentInvokerFactory>();
             yield return describe.Transient<INestedProvider<ViewComponentInvokerProviderContext>,
                 DefaultViewComponentInvokerProvider>();
-            yield return describe.Transient<IViewComponentHelper, DefaultViewComponentHelper>();
+            yield return describe.Scoped<IViewComponentHelper, DefaultViewComponentHelper>();
 
             yield return describe.Transient<IAuthorizationService, DefaultAuthorizationService>();
             yield return describe.Singleton<IClaimUidExtractor, DefaultClaimUidExtractor>();

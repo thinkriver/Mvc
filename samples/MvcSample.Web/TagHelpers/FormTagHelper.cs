@@ -11,7 +11,7 @@ namespace MvcSample.Web
         private IUrlHelper _urlHelper;
 
         public FormTagHelper(IUrlHelper urlHelper)
-            : base("formsdfd")
+            : base("form")
         {
             _urlHelper = urlHelper;
         }

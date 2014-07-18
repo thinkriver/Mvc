@@ -5,7 +5,6 @@ using Microsoft.Framework.DependencyInjection;
 using Microsoft.AspNet.Mvc.Rendering;
 using Microsoft.AspNet.Mvc.ModelBinding;
 using Microsoft.AspNet.Mvc.Razor.TagHelpers;
-using System.Linq;
 using System.IO;
 
 namespace Microsoft.AspNet.Mvc.Razor
@@ -13,7 +12,6 @@ namespace Microsoft.AspNet.Mvc.Razor
     public class TagHelperRenderingContext
     {
         private Stack<TagBuilder> _tagBuilders;
-        private Stack<TagBuilderStringWriter> _tagBodyWriters;
         private TagBuilder _currentTagBuilder;
         private MvcTagHelperContext _currentTagHelperContext;
         private MvcTagHelper _tagHelper;
@@ -29,50 +27,40 @@ namespace Microsoft.AspNet.Mvc.Razor
             _serviceProvider = serviceProvider;
             _typeActivator = typeActivator;
             _tagBuilders = new Stack<TagBuilder>();
-            _tagBodyWriters = new Stack<TagBuilderStringWriter>();
         }
 
         public IModelMetadataProvider MetadataProvider { get; private set; }
-        public TagBuilderStringWriter TagBodyWriter { get; private set; }
 
-        public void PrepareTagHelper<T>(string tagName, ViewDataDictionary viewData) where T : MvcTagHelper
+        public void PrepareTagHelper<T>(string tagName, ViewContext viewContext) where T : MvcTagHelper
         {
             _currentTagBuilder = new TagBuilder(tagName);
             _tagBuilders.Push(_currentTagBuilder);
 
-            _currentTagHelperContext = new MvcTagHelperContext(viewData, MetadataProvider);
-
-            TagBodyWriter = new TagBuilderStringWriter(_currentTagBuilder);
-            _tagBodyWriters.Push(TagBodyWriter);
+            _currentTagHelperContext = new MvcTagHelperContext(viewContext, MetadataProvider);
 
             _tagHelper = _typeActivator.CreateInstance<T>(_serviceProvider);
         }
 
-        public void StartTagHelper()
+        public string StartTagHelper()
         {
             _tagHelper.Process(_currentTagBuilder, _currentTagHelperContext);
+
+            // We render the start tag and the body
+            return _currentTagBuilder.ToString(TagRenderMode.StartTag) + _currentTagBuilder.ToString(TagRenderMode.Body);
         }
 
-        public bool EndTagHelper()
+        public string EndTagHelper()
         {
             _tagBuilders.Pop();
-            _tagBodyWriters.Pop();
 
-            if (_tagBodyWriters.Any())
+            var endTag = _currentTagBuilder.ToString(TagRenderMode.EndTag);
+
+            if (_tagBuilders.Count > 0)
             {
-                _tagBodyWriters.Peek().Write(_currentTagBuilder.ToString());
-                TagBodyWriter = _tagBodyWriters.Peek();
                 _currentTagBuilder = _tagBuilders.Peek();
-
-                return false;
             }
 
-            return true;
-        }
-
-        public string OutputTagHelper()
-        {
-            return _currentTagBuilder.ToString();
+            return endTag;
         }
 
         public void AddAttributeBuilder(string name, Func<TextWriter, MvcTagHelperExpression> expressionBuilder)

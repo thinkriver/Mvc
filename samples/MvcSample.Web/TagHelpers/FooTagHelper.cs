@@ -9,7 +9,7 @@ namespace MvcSample.Web
     public class FooTagHelper : MvcTagHelper
     {
         public FooTagHelper()
-            : base("foosdfsd")
+            : base("foo")
         {
         }
 

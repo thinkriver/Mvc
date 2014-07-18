@@ -162,8 +162,18 @@ namespace Microsoft.AspNet.Mvc.Rendering
         public string ToString(TagRenderMode renderMode)
         {
             var sb = new StringBuilder();
+
+            // If the tag name is empty then we should only render if the render mode is body
+            if(string.IsNullOrEmpty(TagName) && renderMode != TagRenderMode.Body)
+            {
+                return string.Empty;
+            }
+
             switch (renderMode)
             {
+                case TagRenderMode.Body:
+                    sb.Append(InnerHtml);
+                    break;
                 case TagRenderMode.StartTag:
                     sb.Append('<')
                         .Append(TagName);

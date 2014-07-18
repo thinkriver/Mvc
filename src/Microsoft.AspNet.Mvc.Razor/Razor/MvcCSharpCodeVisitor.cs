@@ -50,8 +50,9 @@ namespace Microsoft.AspNet.Mvc.Razor
                   .Write(">(")
                   .WriteStringLiteral(tagHelperDescriptor.TagName)
                   .WriteParameterSeparator()
-                  .Write(_classContext.TagHelperViewDataAccessorName)
-                  .WriteLine(");");
+                  .Write(_classContext.TagHelperViewContextAccessor)
+                  .WriteEndMethodInvocation()
+                  .WriteLine(); // This line is for readability
 
             var tagAttributes = chunk.Attributes;
             string currentWriter;
@@ -126,42 +127,41 @@ namespace Microsoft.AspNet.Mvc.Razor
                 Writer.WriteEndMethodInvocation();
             }
 
-            Writer.Write(_rendererName)
-                  .Write(".")
-                  .WriteMethodInvocation(_classContext.TagHelperRendererStartMethodName);
+            Writer.WriteLine(); // This line is for readability
 
-            currentWriter = Context.TargetWriterName;
-            Context.TargetWriterName = _rendererName + "." + _classContext.TagHelperRendererTagBuilderName;
+            GeneratePreWriteStart().Write(_rendererName)
+                                   .Write(".")
+                                   .WriteMethodInvocation(_classContext.TagHelperRendererStartMethodName, endLine: false)
+                                   .WriteEndMethodInvocation();
+
+            Writer.WriteLine().WriteComment("++++++++++++++++ '" + chunk.TagName + "' Tag Helper Body START ++++++++++++++++").WriteLine(); // TODO: Remove, this is for tag helper readability
 
             // Render all of the children
             BodyVisitor.Accept(chunk.Children);
 
-            Context.TargetWriterName = currentWriter;
+            Writer.WriteComment("---------------- '" + chunk.TagName + "' Tag Helper Body END ----------------").WriteLine(); // TODO: Remove, this is for tag helper readability
 
-            Writer.Write("if (")
-                  .Write(_rendererName)
-                  .Write(".")
-                  .WriteMethodInvocation(_classContext.TagHelperRendererEndMethodName, endLine: false)
-                  .WriteLine(")");
+            GeneratePreWriteStart().Write(_rendererName)
+                                   .Write(".")
+                                   .WriteMethodInvocation(_classContext.TagHelperRendererEndMethodName, endLine: false)
+                                   .WriteEndMethodInvocation()
+                                   .WriteLine(); // This line is for readability
+        }
 
-            using (Writer.BuildScope())
+        private CSharpCodeWriter GeneratePreWriteStart()
+        {
+            if (!string.IsNullOrEmpty(Context.TargetWriterName))
             {
-                if (!string.IsNullOrEmpty(Context.TargetWriterName))
-                {
-                    Writer.WriteStartMethodInvocation(Context.Host.GeneratedClassContext.WriteLiteralToMethodName)
-                          .Write(Context.TargetWriterName)
-                          .WriteParameterSeparator();
-                }
-                else
-                {
-                    Writer.WriteStartMethodInvocation(Context.Host.GeneratedClassContext.WriteLiteralMethodName);
-                }
-
-                Writer.Write(_rendererName)
-                      .Write(".")
-                      .WriteMethodInvocation(_classContext.TagHelperRendererOutputMethodName, endLine: false)
-                      .WriteEndMethodInvocation();
+                Writer.WriteStartMethodInvocation(Context.Host.GeneratedClassContext.WriteLiteralToMethodName)
+                      .Write(Context.TargetWriterName)
+                      .WriteParameterSeparator();
             }
+            else
+            {
+                Writer.WriteStartMethodInvocation(Context.Host.GeneratedClassContext.WriteLiteralMethodName);
+            }
+
+            return Writer;
         }
     }
 }

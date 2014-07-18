@@ -16,15 +16,5 @@ namespace Microsoft.AspNet.Mvc.Razor.TagHelpers
         {
             return _selector.SelectTagHelper(tagName);
         }
-
-        public bool IsTagHelper(string tagName)
-        {
-            return _selector.SelectTagHelper(tagName) != null;
-        }
-
-        public void Register(TagHelperDescriptor descriptor)
-        {
-            // TODO: Register something?
-        }
     }
 }

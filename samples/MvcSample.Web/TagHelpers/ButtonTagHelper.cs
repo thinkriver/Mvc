@@ -7,7 +7,7 @@ namespace MvcSample.Web
     public class ButtonTagHelper : MvcTagHelper
     {
 	    public ButtonTagHelper()
-            : base("aasdfasdf", "pasdfasd")
+            : base("a", "p")
 	    {
 	    }
 

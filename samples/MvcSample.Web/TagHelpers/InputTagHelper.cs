@@ -8,7 +8,7 @@ namespace MvcSample.Web
     public class InputTagHelper : MvcTagHelper
     {
         public InputTagHelper()
-            : base("inputsdfsdf")
+            : base("input")
         {
         }
 
