@@ -8,6 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNet.Mvc.ModelBinding.Internal;
+using Microsoft.Framework.DependencyInjection;
 
 namespace Microsoft.AspNet.Mvc.ModelBinding
 {
@@ -16,16 +17,24 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
         public virtual async Task<bool> BindModelAsync(ModelBindingContext bindingContext)
         {
             ModelBindingHelper.ValidateBindingContext(bindingContext);
+            if (!CanBindType(bindingContext.ModelType))
+            {
+                return false;
+            }
 
-            if (!CanBindType(bindingContext.ModelType) ||
-                !await bindingContext.ValueProvider.ContainsPrefixAsync(bindingContext.ModelName))
+            var mutableObjectBinderContext = new MutableObjectBinderContext()
+            {
+                ModelBindingContext = bindingContext,
+                PropertyMetadata = GetMetadataForProperties(bindingContext),
+            };
+
+            if (!(await CanCreateModel(mutableObjectBinderContext)))
             {
                 return false;
             }
 
             EnsureModel(bindingContext);
-            var propertyMetadatas = GetMetadataForProperties(bindingContext);
-            var dto = CreateAndPopulateDto(bindingContext, propertyMetadatas);
+            var dto = await CreateAndPopulateDto(bindingContext, mutableObjectBinderContext.PropertyMetadata);
 
             // post-processing, e.g. property setters and hooking up validation
             ProcessDto(bindingContext, dto);
@@ -39,10 +48,126 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             return CanUpdatePropertyInternal(propertyMetadata);
         }
 
+        internal async Task<bool> CanCreateModel(MutableObjectBinderContext context)
+        {
+            var bindingContext = context.ModelBindingContext;
+            var isTopLevelObject = bindingContext.ModelMetadata.ContainerType == null;
+            var hasExplicitAlias = bindingContext.ModelMetadata.BinderModelName != null;
+
+            // The fact that this has reached here,
+            // it is a complex object which was not directly bound by any previous model binders.
+            // Check if this was supposed to be handled by a non value provider based binder.
+            // if it was then it should be not be bound using mutable object binder.
+            // This check would prevent it from recursing in if a model contains a property of its own type.
+            // We skip this check if it is a top level object because we want to always evaluate
+            // the creation of top level object (this is also required for ModelBinderAttribute to work.)
+            if (!isTopLevelObject &&
+                bindingContext.ModelMetadata.BinderMetadata != null &&
+                !(bindingContext.ModelMetadata.BinderMetadata is IValueProviderMetadata))
+            {
+                return false;
+            }
+
+            // Create the object if :
+            // 1. It is a top level model with an explicit user supplied prefix.
+            //    In this case since it will never fallback to empty prefix, we need to create the model here.
+            if (isTopLevelObject && hasExplicitAlias)
+            {
+                return true;
+            }
+
+            // 2. It is a top level object and there is no model name ( Fallback to empty prefix case ).
+            //    This is necessary as we do not want to depend on a value provider to contain an empty prefix.
+            if (isTopLevelObject && bindingContext.ModelName == string.Empty)
+            {
+                return true;
+            }
+
+            // 3. The model name is not prefixed and a value provider can directly provide a value for the model name.
+            //    The fact that it is not prefixed means that the containsPrefixAsync call checks for the exact
+            //    model name instead of doing a prefix match.
+            if (!bindingContext.ModelName.Contains(".") &&
+                await bindingContext.ValueProvider.ContainsPrefixAsync(bindingContext.ModelName))
+            {
+                return true;
+            }
+
+            // 4. Any of the model properties can be bound using a value provider.
+            if (await CanValueBindAnyModelProperties(context))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private async Task<bool> CanValueBindAnyModelProperties(MutableObjectBinderContext context)
+        {
+            // We need to enumerate the non marked properties and properties marked with IValueProviderMetadata
+            // instead of checking bindingContext.ValueProvider.ContainsPrefixAsync(bindingContext.ModelName)
+            // because there can be a case where a value provider might be willing to provide a marked property,
+            // which might never be bound.
+            // For example if person.Name is marked with FromQuery, and FormValueProvider has a key person.Name,
+            // and the QueryValueProvider does not, we do not want to create Person.
+            var isAnyPropertyEnabledForValueProviderBasedBinding = false;
+            foreach (var propertyMetadata in context.PropertyMetadata)
+            {
+                // This check will skip properties which are marked explicitly using a non value binder.
+                if (propertyMetadata.BinderMetadata == null ||
+                    propertyMetadata.BinderMetadata is IValueProviderMetadata)
+                {
+                    isAnyPropertyEnabledForValueProviderBasedBinding = true;
+
+                    // If any property can return a true value.
+                    if (await CanBindValue(context.ModelBindingContext, propertyMetadata))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (!isAnyPropertyEnabledForValueProviderBasedBinding)
+            {
+                // Either there are no properties or all the properties are marked as
+                // a non value provider based marker.
+                // This would be the case when the model has all its properties annotated with
+                // a IBinderMetadata. We want to be able to create such a model.
+                return true;
+            }
+
+            return false;
+        }
+
+        private async Task<bool> CanBindValue(ModelBindingContext bindingContext, ModelMetadata metadata)
+        {
+            var valueProvider = bindingContext.ValueProvider;
+            var valueProviderMetadata = metadata.BinderMetadata as IValueProviderMetadata;
+            if (valueProviderMetadata != null)
+            {
+                // if there is a binder metadata and since the property can be bound using a value provider.
+                var metadataAwareValueProvider =
+                    bindingContext.OperationBindingContext.ValueProvider as IMetadataAwareValueProvider;
+                if (metadataAwareValueProvider != null)
+                {
+                    valueProvider = metadataAwareValueProvider.Filter(valueProviderMetadata);
+                }
+            }
+
+            var propertyModelName = ModelBindingHelper.CreatePropertyModelName(bindingContext.ModelName,
+                                                                               metadata.PropertyName);
+
+            if (await valueProvider.ContainsPrefixAsync(propertyModelName))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         private static bool CanBindType(Type modelType)
         {
             // Simple types cannot use this binder
-            var isComplexType = !ValueProviderResult.CanConvertFromString(modelType);
+            var isComplexType = !TypeHelper.HasStringConverter(modelType);
             if (!isComplexType)
             {
                 return false;
@@ -87,25 +212,24 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             return true;
         }
 
-        private ComplexModelDto CreateAndPopulateDto(ModelBindingContext bindingContext,
+        private async Task<ComplexModelDto> CreateAndPopulateDto(ModelBindingContext bindingContext,
                                                      IEnumerable<ModelMetadata> propertyMetadatas)
         {
             // create a DTO and call into the DTO binder
             var originalDto = new ComplexModelDto(bindingContext.ModelMetadata, propertyMetadatas);
-            var dtoBindingContext = new ModelBindingContext(bindingContext)
-            {
-                ModelMetadata = bindingContext.MetadataProvider.GetMetadataForType(() => originalDto,
-                                                                                   typeof(ComplexModelDto)),
-                ModelName = bindingContext.ModelName
-            };
+            var complexModelDtoMetadata =
+                bindingContext.OperationBindingContext.MetadataProvider.GetMetadataForType(() => originalDto,
+                                                                                   typeof(ComplexModelDto));
+            var dtoBindingContext = 
+                new ModelBindingContext(bindingContext, bindingContext.ModelName, complexModelDtoMetadata);
 
-            bindingContext.ModelBinder.BindModelAsync(dtoBindingContext);
+            await bindingContext.OperationBindingContext.ModelBinder.BindModelAsync(dtoBindingContext);
             return (ComplexModelDto)dtoBindingContext.Model;
         }
 
         protected virtual object CreateModel(ModelBindingContext bindingContext)
         {
-            // If the Activator throws an exception, we want to propagate it back up the call stack, since the 
+            // If the Activator throws an exception, we want to propagate it back up the call stack, since the
             // application developer should know that this was an invalid type to try to bind to.
             return Activator.CreateInstance(bindingContext.ModelType);
         }
@@ -122,15 +246,14 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
 
                 if (validationState == ModelValidationState.Unvalidated)
                 {
-                    // Tracked via https://github.com/aspnet/Mvc/issues/450
-                    // TODO: Revive ModelBinderConfig
-                    // var errorMessage =  ModelBinderConfig.ValueRequiredErrorMessageProvider(e.ValidationContext, 
-                    //                                                                            modelMetadata, 
+                    // TODO: https://github.com/aspnet/Mvc/issues/450 Revive ModelBinderConfig
+                    // var errorMessage =  ModelBinderConfig.ValueRequiredErrorMessageProvider(e.ValidationContext,
+                    //                                                                            modelMetadata,
                     //                                                                            incomingValue);
-                    var errorMessage = "A value is required.";
+                    var errorMessage = Resources.ModelBinderConfig_ValueRequired;
                     if (errorMessage != null)
                     {
-                        modelState.AddModelError(validationNode.ModelStateKey, errorMessage);
+                        modelState.TryAddModelError(validationNode.ModelStateKey, errorMessage);
                     }
                 }
             };
@@ -147,11 +270,25 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
         protected virtual IEnumerable<ModelMetadata> GetMetadataForProperties(ModelBindingContext bindingContext)
         {
             var validationInfo = GetPropertyValidationInfo(bindingContext);
+            var newPropertyFilter = GetPropertyFilter();
             return bindingContext.ModelMetadata.Properties
                                  .Where(propertyMetadata =>
+                                    newPropertyFilter(bindingContext, propertyMetadata.PropertyName) &&
                                     (validationInfo.RequiredProperties.Contains(propertyMetadata.PropertyName) ||
                                     !validationInfo.SkipProperties.Contains(propertyMetadata.PropertyName)) &&
                                     CanUpdateProperty(propertyMetadata));
+        }
+
+        private static Func<ModelBindingContext, string, bool> GetPropertyFilter()
+        {
+            return (ModelBindingContext context, string propertyName) =>
+            {
+                var modelMetadataPredicate = context.ModelMetadata.PropertyBindingPredicateProvider?.PropertyFilter;
+
+                return
+                    context.PropertyFilter(context, propertyName) &&
+                    (modelMetadataPredicate == null || modelMetadataPredicate(context, propertyName));
+            };
         }
 
         private static object GetPropertyDefaultValue(PropertyInfo propertyInfo)
@@ -170,8 +307,10 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             {
                 var propertyName = property.Name;
                 var propertyMetadata = bindingContext.PropertyMetadata[propertyName];
-                var requiredValidator = bindingContext.GetValidators(propertyMetadata)
-                                                      .FirstOrDefault(v => v.IsRequired);
+                var requiredValidator = bindingContext.OperationBindingContext
+                                                      .ValidatorProvider
+                                                      .GetValidators(propertyMetadata)
+                                                      .FirstOrDefault(v => v != null && v.IsRequired);
                 if (requiredValidator != null)
                 {
                     validationInfo.RequiredValidators[propertyName] = requiredValidator;
@@ -231,7 +370,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
                 // (oddly) succeeded.
                 if (!addedError)
                 {
-                    bindingContext.ModelState.AddModelError(
+                    bindingContext.ModelState.TryAddModelError(
                         modelStateKey,
                         Resources.FormatMissingRequiredMember(missingRequiredProperty));
                 }
@@ -272,7 +411,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             propertyMetadata.Model = value;
 
             // 'Required' validators need to run first so that we can provide useful error messages if
-            // the property setters throw, e.g. if we're setting entity keys to null. 
+            // the property setters throw, e.g. if we're setting entity keys to null.
             if (value == null)
             {
                 var modelStateKey = dtoResult.ValidationNode.ModelStateKey;
@@ -284,7 +423,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
                         var validationContext = new ModelValidationContext(bindingContext, propertyMetadata);
                         foreach (var validationResult in requiredValidator.Validate(validationContext))
                         {
-                            bindingContext.ModelState.AddModelError(modelStateKey, validationResult.Message);
+                            bindingContext.ModelState.TryAddModelError(modelStateKey, validationResult.Message);
                         }
                     }
                 }
@@ -336,7 +475,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             var addedError = false;
             foreach (var validationResult in validator.Validate(validationContext))
             {
-                bindingContext.ModelState.AddModelError(modelStateKey, validationResult.Message);
+                bindingContext.ModelState.TryAddModelError(modelStateKey, validationResult.Message);
                 addedError = true;
             }
 

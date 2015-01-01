@@ -7,6 +7,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
+using Microsoft.AspNet.FileSystems;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -14,30 +17,52 @@ using Microsoft.Framework.Runtime;
 
 namespace Microsoft.AspNet.Mvc.Razor.Compilation
 {
+    /// <summary>
+    /// A type that uses Roslyn to compile C# content.
+    /// </summary>
     public class RoslynCompilationService : ICompilationService
     {
-        private static readonly ConcurrentDictionary<string, MetadataReference> _metadataFileCache =
-            new ConcurrentDictionary<string, MetadataReference>(StringComparer.OrdinalIgnoreCase);
+        private readonly Lazy<bool> _supportsPdbGeneration = new Lazy<bool>(SupportsPdbGeneration);
+        private readonly ConcurrentDictionary<string, AssemblyMetadata> _metadataFileCache =
+            new ConcurrentDictionary<string, AssemblyMetadata>(StringComparer.OrdinalIgnoreCase);
 
         private readonly ILibraryManager _libraryManager;
         private readonly IApplicationEnvironment _environment;
-        private readonly IAssemblyLoaderEngine _loader;
+        private readonly IAssemblyLoadContext _loader;
 
+        private readonly Lazy<List<MetadataReference>> _applicationReferences;
+
+        private readonly string _classPrefix;
+
+        /// <summary>
+        /// Initalizes a new instance of the <see cref="RoslynCompilationService"/> class.
+        /// </summary>
+        /// <param name="environment">The environment for the executing application.</param>
+        /// <param name="loaderEngine">The loader used to load compiled assemblies.</param>
+        /// <param name="libraryManager">The library manager that provides export and reference information.</param>
+        /// <param name="host">The <see cref="IMvcRazorHost"/> that was used to generate the code.</param>
         public RoslynCompilationService(IApplicationEnvironment environment,
-                                        IAssemblyLoaderEngine loaderEngine,
-                                        ILibraryManager libraryManager)
+                                        IAssemblyLoadContextAccessor loaderAccessor,
+                                        ILibraryManager libraryManager,
+                                        IMvcRazorHost host)
         {
             _environment = environment;
-            _loader = loaderEngine;
+            _loader = loaderAccessor.GetLoadContext(typeof(RoslynCompilationService).GetTypeInfo().Assembly);
             _libraryManager = libraryManager;
+            _applicationReferences = new Lazy<List<MetadataReference>>(GetApplicationReferences);
+            _classPrefix = host.MainClassNamePrefix;
         }
 
-        public CompilationResult Compile(string content)
+        /// <inheritdoc />
+        public CompilationResult Compile([NotNull] IFileInfo fileInfo, [NotNull] string compilationContent)
         {
-            var syntaxTrees = new[] { CSharpSyntaxTree.ParseText(content) };
-            var targetFramework = _environment.TargetFramework;
+            // The path passed to SyntaxTreeGenerator.Generate is used by the compiler to generate symbols (pdb) that
+            // map to the source file. If a file does not exist on a physical file system, PhysicalPath will be null.
+            // This prevents files that exist in a non-physical file system from being debugged.
+            var path = fileInfo.PhysicalPath ?? fileInfo.Name;
+            var syntaxTrees = new[] { SyntaxTreeGenerator.Generate(compilationContent, path) };
 
-            var references = GetApplicationReferences();
+            var references = _applicationReferences.Value;
 
             var assemblyName = Path.GetRandomFileName();
 
@@ -52,13 +77,13 @@ namespace Microsoft.AspNet.Mvc.Razor.Compilation
                 {
                     EmitResult result;
 
-                    if (PlatformHelper.IsMono)
+                    if (_supportsPdbGeneration.Value)
                     {
-                        result = compilation.Emit(ms, pdbStream: null);
+                        result = compilation.Emit(ms, pdbStream: pdb);
                     }
                     else
                     {
-                        result = compilation.Emit(ms, pdbStream: pdb);
+                        result = compilation.Emit(ms);
                     }
 
                     if (!result.Success)
@@ -70,26 +95,27 @@ namespace Microsoft.AspNet.Mvc.Razor.Compilation
                                              .Select(d => GetCompilationMessage(formatter, d))
                                              .ToList();
 
-                        return CompilationResult.Failed(content, messages);
+                        return CompilationResult.Failed(fileInfo, compilationContent, messages);
                     }
 
                     Assembly assembly;
                     ms.Seek(0, SeekOrigin.Begin);
 
-                    if (PlatformHelper.IsMono)
-                    {
-                        assembly = _loader.LoadStream(ms, pdbStream: null);
-                    }
-                    else
+                    if (_supportsPdbGeneration.Value)
                     {
                         pdb.Seek(0, SeekOrigin.Begin);
                         assembly = _loader.LoadStream(ms, pdb);
                     }
+                    else
+                    {
+                        assembly = _loader.LoadStream(ms, assemblySymbols: null);
+                    }
 
                     var type = assembly.GetExportedTypes()
-                                       .First();
+                                       .First(t => t.Name.
+                                          StartsWith(_classPrefix, StringComparison.Ordinal));
 
-                    return CompilationResult.Successful(string.Empty, type);
+                    return UncachedCompilationResult.Successful(type);
                 }
             }
         }
@@ -98,51 +124,107 @@ namespace Microsoft.AspNet.Mvc.Razor.Compilation
         {
             var references = new List<MetadataReference>();
 
-            var export = _libraryManager.GetLibraryExport(_environment.ApplicationName);
+            var export = _libraryManager.GetAllExports(_environment.ApplicationName);
 
             foreach (var metadataReference in export.MetadataReferences)
             {
-                var fileMetadataReference = metadataReference as IMetadataFileReference;
-
-                if (fileMetadataReference != null)
-                {
-                    references.Add(CreateMetadataFileReference(fileMetadataReference.Path));
-                }
-                else
-                {
-                    var roslynReference = metadataReference as IRoslynMetadataReference;
-
-                    if (roslynReference != null)
-                    {
-                        references.Add(roslynReference.MetadataReference);
-                    }
-                }
+                // Taken from https://github.com/aspnet/KRuntime/blob/757ba9bfdf80bd6277e715d6375969a7f44370ee/src/...
+                // Microsoft.Framework.Runtime.Roslyn/RoslynCompiler.cs#L164
+                // We don't want to take a dependency on the Roslyn bit directly since it pulls in more dependencies
+                // than the view engine needs (Microsoft.Framework.Runtime) for example
+                references.Add(ConvertMetadataReference(metadataReference));
             }
 
             return references;
         }
 
-        private MetadataReference CreateMetadataFileReference(string path)
+        private MetadataReference ConvertMetadataReference(IMetadataReference metadataReference)
         {
-            return _metadataFileCache.GetOrAdd(path, _ =>
+            var roslynReference = metadataReference as IRoslynMetadataReference;
+
+            if (roslynReference != null)
             {
-                // TODO: What about access to the file system? We need to be able to 
-                // read files from anywhere on disk, not just under the web root
-                using (var stream = File.OpenRead(path))
+                return roslynReference.MetadataReference;
+            }
+
+            var embeddedReference = metadataReference as IMetadataEmbeddedReference;
+
+            if (embeddedReference != null)
+            {
+                return MetadataReference.CreateFromImage(embeddedReference.Contents);
+            }
+
+            var fileMetadataReference = metadataReference as IMetadataFileReference;
+
+            if (fileMetadataReference != null)
+            {
+                return CreateMetadataFileReference(fileMetadataReference.Path);
+            }
+
+            var projectReference = metadataReference as IMetadataProjectReference;
+            if (projectReference != null)
+            {
+                using (var ms = new MemoryStream())
                 {
-                    return new MetadataImageReference(stream);
+                    projectReference.EmitReferenceAssembly(ms);
+
+                    return MetadataReference.CreateFromImage(ms.ToArray());
                 }
-            });
+            }
+
+            throw new NotSupportedException();
         }
 
-        private CompilationMessage GetCompilationMessage(DiagnosticFormatter formatter, Diagnostic diagnostic)
+        private MetadataReference CreateMetadataFileReference(string path)
+        {
+            var metadata = _metadataFileCache.GetOrAdd(path, _ =>
+            {
+                using (var stream = File.OpenRead(path))
+                {
+                    var moduleMetadata = ModuleMetadata.CreateFromStream(stream, PEStreamOptions.PrefetchMetadata);
+                    return AssemblyMetadata.Create(moduleMetadata);
+                }
+            });
+
+            return metadata.GetReference();
+        }
+
+        private static CompilationMessage GetCompilationMessage(DiagnosticFormatter formatter, Diagnostic diagnostic)
         {
             return new CompilationMessage(formatter.Format(diagnostic));
         }
 
-        private bool IsError(Diagnostic diagnostic)
+        private static bool IsError(Diagnostic diagnostic)
         {
             return diagnostic.IsWarningAsError || diagnostic.Severity == DiagnosticSeverity.Error;
+        }
+
+        private static bool SupportsPdbGeneration()
+        {
+            try
+            {
+                if (PlatformHelper.IsMono)
+                {
+                    return false;
+                }
+
+                // Check for the pdb writer component that roslyn uses to generate pdbs
+                const string SymWriterGuid = "0AE2DEB0-F901-478b-BB9F-881EE8066788";
+
+                var type = Marshal.GetTypeFromCLSID(new Guid(SymWriterGuid));
+
+                if (type != null)
+                {
+                    // This line will throw if pdb generation is not supported.
+                    Activator.CreateInstance(type);
+                    return true;
+                }
+            }
+            catch
+            {
+            }
+
+            return false;
         }
     }
 }

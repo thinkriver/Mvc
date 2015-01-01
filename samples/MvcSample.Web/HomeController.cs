@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNet.Http;
@@ -17,6 +20,11 @@ namespace MvcSample.Web
             return View("MyView", CreateUser());
         }
 
+        public IActionResult NullUser()
+        {
+            return View();
+        }
+
         public ActionResult ValidationSummary()
         {
             ModelState.AddModelError("something", "Something happened, show up in validation summary.");
@@ -27,6 +35,27 @@ namespace MvcSample.Web
         public ActionResult InjectSample()
         {
             return View();
+        }
+
+        public ActionResult NotFound()
+        {
+            return HttpNotFound();
+        }
+
+        public ActionResult SendFileFromDisk()
+        {
+            return File("sample.txt", "text/plain");
+        }
+
+        public ActionResult SendFileFromDiskWithName()
+        {
+            return File("sample.txt", "text/plain", "sample-file.txt");
+        }
+
+        public bool IsDefaultNameSpace()
+        {
+            var namespaceToken = ActionContext.RouteData.DataTokens["NameSpace"] as string;
+            return namespaceToken == "default";
         }
 
         /// <summary>
@@ -86,6 +115,17 @@ namespace MvcSample.Web
             Context.Response.WriteAsync("Hello World raw");
         }
 
+        public ActionResult Language()
+        {
+            return View();
+        }
+
+        [Produces("application/json", "application/xml", "application/custom", "text/json", Type = typeof(User))]
+        public object ReturnUser()
+        {
+            return CreateUser();
+        }
+
         public User CreateUser()
         {
             User user = new User()
@@ -109,12 +149,48 @@ namespace MvcSample.Web
             return user;
         }
 
+        [HttpGet("/AttributeRouting/{other}", Order = 0)]
+        public string LowerPrecedence(string param)
+        {
+            return "Lower";
+        }
+
+        // Normally this route would be tried before the one above
+        // as it is more explicit (doesn't have a parameter), but
+        // due to the fact that it has a higher order, it will be
+        // tried after the route above.
+        [HttpGet("/AttributeRouting/HigherPrecedence", Order = 1)]
+        public string HigherOrder()
+        {
+            return "Higher";
+        }
+
+        // Both routes have the same template, which would make
+        // them ambiguous, but the order we defined in the routes
+        // disambiguates them.
+        [HttpGet("/AttributeRouting/SameTemplate", Order = 0)]
+        public string SameTemplateHigherOrderPrecedence()
+        {
+            return "HigherOrderPrecedence";
+        }
+
+        [HttpGet("/AttributeRouting/SameTemplate", Order = 1)]
+        public string SameTemplateLowerOrderPrecedence()
+        {
+            return "LowerOrderPrecedence";
+        }
+
         /// <summary>
         /// Action that exercises default view names.
         /// </summary>
         public ActionResult MyView()
         {
             return View(CreateUser());
+        }
+
+        public ActionResult FlushPoint()
+        {
+            return View();
         }
 
         private static IEnumerable<SelectListItem> CreateAddresses()

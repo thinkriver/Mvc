@@ -25,5 +25,10 @@ namespace RoutingWebSite
             // There are no urls that reach this action - it's hidden by an attribute route.
             return _generator.Generate();
         }
+
+        public IActionResult Contact()
+        {
+            return _generator.Generate("/Home/Contact");
+        }
     }
 }

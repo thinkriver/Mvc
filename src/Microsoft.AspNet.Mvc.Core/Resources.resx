@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -26,36 +26,36 @@
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-                
-    There are any number of "resheader" rows that contain simple 
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -160,7 +160,8 @@
     <value>The class ReflectedActionFilterEndPoint only supports ReflectedActionDescriptors.</value>
   </data>
   <data name="ViewComponent_AmbiguousTypeMatch" xml:space="preserve">
-    <value>The view component name '{0}' matched multiple types: {1}</value>
+    <value>The view component name '{0}' matched multiple types:{1}{2}</value>
+    <comment>{1} is the newline character</comment>
   </data>
   <data name="ViewComponent_AsyncMethod_ShouldReturnTask" xml:space="preserve">
     <value>The async view component method '{0}' should be declared to return Task&lt;T&gt;.</value>
@@ -192,11 +193,11 @@
   <data name="ActionInvokerFactory_CouldNotCreateInvoker" xml:space="preserve">
     <value>An action invoker could not be created for action '{0}'.</value>
   </data>
-  <data name="DefaultControllerFactory_ActionDescriptorMustBeReflected" xml:space="preserve">
+  <data name="ActionDescriptorMustBeBasedOnControllerAction" xml:space="preserve">
     <value>The action descriptor must be of type '{0}'.</value>
   </data>
   <data name="ArgumentCannotBeNullOrEmpty" xml:space="preserve">
-    <value>The value cannot be null or empty.</value>
+    <value>Value cannot be null or empty.</value>
   </data>
   <data name="PropertyOfTypeCannotBeNull" xml:space="preserve">
     <value>The '{0}' property of '{1}' must not be null.</value>
@@ -230,6 +231,9 @@
   </data>
   <data name="ExpressionHelper_InvalidIndexerExpression" xml:space="preserve">
     <value>The expression compiler was unable to evaluate the indexer expression '{0}' because it references the model parameter '{1}' which is unavailable.</value>
+  </data>
+  <data name="Invalid_IncludePropertyExpression" xml:space="preserve">
+    <value>The passed expression of expression node type '{0}' is invalid. Only simple member access expressions for model properties are supported.</value>
   </data>
   <data name="HtmlHelper_NullModelMetadata" xml:space="preserve">
     <value>The IModelMetadataProvider was unable to provide metadata for expression '{0}'.</value>
@@ -311,5 +315,98 @@
   </data>
   <data name="TypeMustDeriveFromType" xml:space="preserve">
     <value>The type '{0}' must derive from '{1}'.</value>
+  </data>
+  <data name="OutputFormatterNoEncoding" xml:space="preserve">
+    <value>No encoding found for output formatter '{0}'. There must be at least one supported encoding registered in order for the output formatter to write content.</value>
+  </data>
+  <data name="InputFormatterNoEncoding" xml:space="preserve">
+    <value>No encoding found for input formatter '{0}'. There must be at least one supported encoding registered in order for the formatter to read content.</value>
+  </data>
+  <data name="UnsupportedContentType" xml:space="preserve">
+    <value>Unsupported content type '{0}'.</value>
+  </data>
+  <data name="OutputFormatterNoMediaType" xml:space="preserve">
+    <value>No supported media type registered for output formatter '{0}'. There must be at least one supported media type registered in order for the output formatter to write content.</value>
+  </data>
+  <data name="AttributeRoute_AggregateErrorMessage" xml:space="preserve">
+    <value>The following errors occurred with attribute routing information:{0}{0}{1}</value>
+    <comment>{0} is the newline. {1} is the formatted list of errors using AttributeRoute_IndividualErrorMessage</comment>
+  </data>
+  <data name="AttributeRoute_CannotContainParameter" xml:space="preserve">
+    <value>The attribute route '{0}' cannot contain a parameter named '{{{1}}}'. Use '[{1}]' in the route template to insert the value '{2}'.</value>
+  </data>
+  <data name="AttributeRoute_IndividualErrorMessage" xml:space="preserve">
+    <value>For action: '{0}'{1}Error: {2}</value>
+    <comment>{1} is the newline.</comment>
+  </data>
+  <data name="AttributeRoute_TokenReplacement_EmptyTokenNotAllowed" xml:space="preserve">
+    <value>An empty replacement token ('[]') is not allowed.</value>
+  </data>
+  <data name="AttributeRoute_TokenReplacement_ImbalancedSquareBrackets" xml:space="preserve">
+    <value>Token delimiters ('[', ']') are imbalanced.</value>
+  </data>
+  <data name="AttributeRoute_TokenReplacement_InvalidSyntax" xml:space="preserve">
+    <value>The route template '{0}' has invalid syntax. {1}</value>
+    <comment>{1} is the specific error message.</comment>
+  </data>
+  <data name="AttributeRoute_TokenReplacement_ReplacementValueNotFound" xml:space="preserve">
+    <value>While processing template '{0}', a replacement value for the token '{1}' could not be found. Available tokens: '{2}'.</value>
+  </data>
+  <data name="AttributeRoute_TokenReplacement_UnclosedToken" xml:space="preserve">
+    <value>A replacement token is not closed.</value>
+  </data>
+  <data name="AttributeRoute_TokenReplacement_UnescapedBraceInToken" xml:space="preserve">
+    <value>An unescaped '[' token is not allowed inside of a replacement token. Use '[[' to escape.</value>
+  </data>
+  <data name="RouteConstraintAttribute_InvalidKeyHandlingValue" xml:space="preserve">
+    <value>The value must be either '{0}' or '{1}'.</value>
+  </data>
+  <data name="UnableToFindServices" xml:space="preserve">
+    <value>Unable to find the required services. Please add all the required services by calling '{0}' inside the call to '{1}' or '{2}' in the application startup code.</value>
+  </data>
+  <data name="AttributeRoute_DifferentLinkGenerationEntries_SameName" xml:space="preserve">
+    <value>Two or more routes named '{0}' have different templates.</value>
+  </data>
+  <data name="AttributeRoute_DuplicateNames_Item" xml:space="preserve">
+    <value>Action: '{0}' - Template: '{1}'</value>
+    <comment>Formats an action descriptor display name and it's associated template.</comment>
+  </data>
+  <data name="AttributeRoute_DuplicateNames" xml:space="preserve">
+    <value>Attribute routes with the same name '{0}' must have the same template:{1}{2}</value>
+    <comment>{0} is the name of the attribute route, {1} is the newline, {2} is the list of errors formatted using ActionDescriptor_WithNamedAttributeRouteAndDifferentTemplate</comment>
+  </data>
+  <data name="AttributeRoute_AggregateErrorMessage_ErrorNumber" xml:space="preserve">
+    <value>Error {0}:{1}{2}</value>
+    <comment>{0} is the error number, {1} is Environment.NewLine {2} is the  error message</comment>
+  </data>
+  <data name="TemplatedViewLocationExpander_NoReplacementToken" xml:space="preserve">
+    <value>Could not find a replacement for view expansion token '{0}'.</value>
+  </data>
+  <data name="TemplatedExpander_PopulateValuesMustBeInvokedFirst" xml:space="preserve">
+    <value>{0} must be executed before {1} can be invoked.</value>
+  </data>
+  <data name="TemplatedExpander_ValueFactoryCannotReturnNull" xml:space="preserve">
+    <value>The result of value factory cannot be null.</value>
+  </data>
+  <data name="AttributeRoute_MixedAttributeAndConventionallyRoutedActions_ForMethod" xml:space="preserve">
+    <value>A method '{0}' must not define attribute routed actions and non attribute routed actions at the same time:{1}{2}{1}{1}Use 'AcceptVerbsAttribute' to create a single route that allows multiple HTTP verbs and defines a route, or set a route template in all attributes that constrain HTTP verbs.</value>
+    <comment>{0} is the MethodInfo.FullName, {1} is Environment.NewLine, {2} is the formatted list of actions defined by that method info.</comment>
+  </data>
+  <data name="AttributeRoute_MixedAttributeAndConventionallyRoutedActions_ForMethod_Item" xml:space="preserve">
+    <value>Action: '{0}' - Route Template: '{1}' - HTTP Verbs: '{2}'</value>
+  </data>
+  <data name="AttributeRoute_NullTemplateRepresentation" xml:space="preserve">
+    <value>(none)</value>
+  </data>
+  <data name="DefaultActionSelector_AmbiguousActions" xml:space="preserve">
+    <value>Multiple actions matched. The following actions matched route data and had all constraints satisfied:{0}{0}{1}</value>
+    <comment>0 is the newline - 1 is a newline separate list of action display names</comment>
+  </data>
+  <data name="FileResult_InvalidPath" xml:space="preserve">
+    <value>Could not find file: {0}</value>
+    <comment>{0} is the value for the provided path</comment>
+  </data>
+  <data name="ViewComponent_AmbiguousTypeMatch_Item" xml:space="preserve">
+    <value>Type: '{0}' - Name: '{1}'</value>
   </data>
 </root>

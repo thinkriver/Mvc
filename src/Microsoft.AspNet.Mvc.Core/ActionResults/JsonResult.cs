@@ -1,76 +1,131 @@
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.IO;
-using System.Text;
-using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNet.Mvc.HeaderValueAbstractions;
+using Microsoft.Framework.DependencyInjection;
 
 namespace Microsoft.AspNet.Mvc
 {
+    /// <summary>
+    /// An action result which formats the given object as JSON.
+    /// </summary>
     public class JsonResult : ActionResult
     {
-        private const int BufferSize = 1024;
-
-        private JsonSerializerSettings _jsonSerializerSettings;
-        private Encoding _encoding = Encodings.UTF8EncodingWithoutBOM;
-
-        public JsonResult([NotNull] object data)
+        /// <summary>
+        /// The list of content-types used for formatting when <see cref="ContentTypes"/> is null or empty.
+        /// </summary>
+        public static readonly IReadOnlyList<MediaTypeHeaderValue> DefaultContentTypes = new MediaTypeHeaderValue[]
         {
-            Data = data;
-            _jsonSerializerSettings = JsonOutputFormatter.CreateDefaultSettings();
-        }
+            MediaTypeHeaderValue.Parse("application/json"),
+            MediaTypeHeaderValue.Parse("text/json"),
+        };
 
-        public JsonSerializerSettings SerializerSettings
+        /// <summary>
+        /// Creates a new <see cref="JsonResult"/> with the given <paramref name="data"/>.
+        /// </summary>
+        /// <param name="value">The value to format as JSON.</param>
+        public JsonResult(object value)
+            : this(value, formatter: null)
         {
-            get { return _jsonSerializerSettings; }
-
-            set
-            {
-                if (value == null)
-                {
-                    throw new ArgumentNullException("value");
-                }
-
-                _jsonSerializerSettings = value;
-            }
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether to indent elements when writing data.
+        /// Creates a new <see cref="JsonResult"/> with the given <paramref name="data"/>.
         /// </summary>
-        public bool Indent { get; set; }
-
-        public Encoding Encoding
+        /// <param name="value">The value to format as JSON.</param>
+        /// <param name="formatter">The formatter to use, or <c>null</c> to choose a formatter dynamically.</param>
+        public JsonResult(object value, IOutputFormatter formatter)
         {
-            get { return _encoding; }
-            set
-            {
-                if (value == null)
-                {
-                    throw new ArgumentNullException("value");
-                }
+            Value = value;
+            Formatter = formatter;
 
-                _encoding = value;
-            }
+            ContentTypes = new List<MediaTypeHeaderValue>();
         }
 
-        public object Data { get; private set; }
+        /// <summary>
+        /// Gets or sets the list of supported Content-Types.
+        /// </summary>
+        public IList<MediaTypeHeaderValue> ContentTypes { get; set; }
 
-        public override void ExecuteResult([NotNull] ActionContext context)
+        /// <summary>
+        /// Gets or sets the formatter.
+        /// </summary>
+        public IOutputFormatter Formatter { get; set; }
+
+        /// <summary>
+        /// Gets or sets the value to be formatted.
+        /// </summary>
+        public object Value { get; set; }
+
+        /// <inheritdoc />
+        public override async Task ExecuteResultAsync([NotNull] ActionContext context)
         {
-            var response = context.HttpContext.Response;
-            var writeStream = response.Body;
+            var objectResult = new ObjectResult(Value);
 
-            if (response.ContentType == null)
+            // Set the content type explicitly to application/json and text/json.
+            // if the user has not already set it.
+            if (ContentTypes == null || ContentTypes.Count == 0)
             {
-                response.ContentType = "application/json";
+                foreach (var contentType in DefaultContentTypes)
+                {
+                    objectResult.ContentTypes.Add(contentType);
+                }
+            }
+            else
+            {
+                objectResult.ContentTypes = ContentTypes;
             }
 
-            using (var writer = new StreamWriter(writeStream, Encoding, BufferSize, leaveOpen: true))
+            var formatterContext = new OutputFormatterContext()
             {
-                var formatter = new JsonOutputFormatter(SerializerSettings, Indent);
-                formatter.WriteObject(writer, Data);
+                ActionContext = context,
+                DeclaredType = objectResult.DeclaredType,
+                Object = Value,
+            };
+
+            var formatter = SelectFormatter(objectResult, formatterContext);
+            await formatter.WriteAsync(formatterContext);
+        }
+
+        private IOutputFormatter SelectFormatter(ObjectResult objectResult, OutputFormatterContext formatterContext)
+        {
+            if (Formatter == null)
+            {
+                // If no formatter was provided, then run Conneg with the formatters configured in options.
+                var formatters = formatterContext
+                    .ActionContext
+                    .HttpContext
+                    .RequestServices
+                    .GetRequiredService<IOutputFormattersProvider>()
+                    .OutputFormatters
+                    .OfType<IJsonOutputFormatter>()
+                    .ToArray();
+
+                var formatter = objectResult.SelectFormatter(formatterContext, formatters);
+                if (formatter == null)
+                {
+                    // If the available user-configured formatters can't write this type, then fall back to the
+                    // 'global' one.
+                    formatter = formatterContext
+                        .ActionContext
+                        .HttpContext
+                        .RequestServices
+                        .GetRequiredService<JsonOutputFormatter>();
+
+                    // Run SelectFormatter again to try to choose a content type that this formatter can do.
+                    objectResult.SelectFormatter(formatterContext, new[] { formatter });
+                }
+
+                return formatter;
+            }
+            else
+            {
+                // Run SelectFormatter to try to choose a content type that this formatter can do.
+                objectResult.SelectFormatter(formatterContext, new[] { Formatter });
+                return Formatter;
             }
         }
     }

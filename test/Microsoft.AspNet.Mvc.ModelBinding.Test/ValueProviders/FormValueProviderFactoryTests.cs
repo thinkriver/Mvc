@@ -1,16 +1,15 @@
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-#if NET45
+#if ASPNET50
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNet.Http;
-using Microsoft.AspNet.Routing;
 using Moq;
 using Xunit;
-using System;
-using System.Threading;
 
 namespace Microsoft.AspNet.Mvc.ModelBinding.Test
 {
@@ -22,7 +21,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             // Arrange
             var context = CreateContext("some-content-type");
             var factory = new FormValueProviderFactory();
-            
+
             // Act
             var result = factory.GetValueProvider(context);
 
@@ -43,7 +42,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             var result = factory.GetValueProvider(context);
 
             // Assert
-            var valueProvider = Assert.IsType<ReadableStringCollectionValueProvider>(result);
+            var valueProvider = Assert.IsType<ReadableStringCollectionValueProvider<IFormDataValueProviderMetadata>>(result);
             Assert.Equal(CultureInfo.CurrentCulture, valueProvider.Culture);
         }
 
@@ -52,16 +51,13 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             var collection = Mock.Of<IReadableStringCollection>();
             var request = new Mock<HttpRequest>();
             request.Setup(f => f.GetFormAsync(CancellationToken.None)).Returns(Task.FromResult(collection));
-            
-            var mockHeader = new Mock<IHeaderDictionary>();
-            mockHeader.Setup(h => h["Content-Type"]).Returns(contentType);
-            request.SetupGet(r => r.Headers).Returns(mockHeader.Object);
+            request.SetupGet(r => r.ContentType).Returns(contentType);
 
             var context = new Mock<HttpContext>();
             context.SetupGet(c => c.Request).Returns(request.Object);
 
             return new ValueProviderFactoryContext(
-                context.Object, 
+                context.Object,
                 new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase));
         }
     }

@@ -25,7 +25,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
         }
 
         /// <summary>
-        /// Renders the closing </form> tag to the response.
+        /// Renders the &lt;/form&gt; end tag to the response.
         /// </summary>
         public void EndForm()
         {
@@ -35,8 +35,6 @@ namespace Microsoft.AspNet.Mvc.Rendering
         protected virtual void GenerateEndForm()
         {
             _viewContext.Writer.Write("</form>");
-
-            // TODO revive viewContext.OutputClientValidation(), this requires GetJsonValidationMetadata(), GitHub #163
             _viewContext.FormContext = null;
         }
 

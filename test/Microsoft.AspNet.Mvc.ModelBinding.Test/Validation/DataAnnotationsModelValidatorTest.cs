@@ -3,8 +3,8 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+#if ASPNET50
 using System.Linq;
-#if NET45
 using Moq;
 using Moq.Protected;
 #endif
@@ -14,7 +14,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
 {
     public class DataAnnotationsModelValidatorTest
     {
-        private static DataAnnotationsModelMetadataProvider _metadataProvider = 
+        private static DataAnnotationsModelMetadataProvider _metadataProvider =
             new DataAnnotationsModelMetadataProvider();
 
         [Fact]
@@ -49,9 +49,9 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
-#if NET45
+#if ASPNET50
         [Theory]
-        [MemberData("ValidateSetsMemberNamePropertyDataSet")]
+        [MemberData(nameof(ValidateSetsMemberNamePropertyDataSet))]
         public void ValidateSetsMemberNamePropertyOfValidationContextForProperties(ModelMetadata metadata,
                                                                                    string expectedMemberName)
         {

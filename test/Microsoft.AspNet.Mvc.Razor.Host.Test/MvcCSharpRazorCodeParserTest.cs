@@ -309,7 +309,7 @@ namespace Microsoft.AspNet.Mvc.Razor
         {
             // Arrange
             var errors = new List<RazorError>();
-            var documentContent = "@inject    \r\nBar";
+            var documentContent = "@inject    " + Environment.NewLine + "Bar";
             var factory = SpanFactory.CreateCsHtml();
             var expectedSpans = new Span[]
             {
@@ -326,6 +326,37 @@ namespace Microsoft.AspNet.Mvc.Razor
             var expectedErrors = new[]
             {
                 new RazorError("The 'inject' keyword must be followed by a type name on the same line.",
+                                new SourceLocation(11, 0, 11), 1)
+            };
+
+            // Act
+            var spans = ParseDocument(documentContent, errors);
+
+            // Assert
+            Assert.Equal(expectedSpans, spans);
+            Assert.Equal(expectedErrors, errors);
+        }
+
+        [Fact]
+        public void ParseInjectKeyword_ErrorOnMissingTypeName_WhenTypeNameEndsWithEOF()
+        {
+            // Arrange
+            var errors = new List<RazorError>();
+            var documentContent = "@inject    ";
+            var factory = SpanFactory.CreateCsHtml();
+            var expectedSpans = new Span[]
+            {
+                factory.EmptyHtml(),
+                factory.CodeTransition(SyntaxConstants.TransitionString)
+                    .Accepts(AcceptedCharacters.None),
+                factory.MetaCode("inject ")
+                    .Accepts(AcceptedCharacters.None),
+                factory.Code("   ")
+                    .As(new InjectParameterGenerator(string.Empty, string.Empty)),
+            };
+            var expectedErrors = new[]
+            {
+                 new RazorError("The 'inject' keyword must be followed by a type name on the same line.",
                                 new SourceLocation(11, 0, 11), 1)
             };
 
@@ -371,6 +402,38 @@ namespace Microsoft.AspNet.Mvc.Razor
             Assert.Equal(expectedErrors, errors);
         }
 
+        [Fact]
+        public void ParseInjectKeyword_ErrorOnMissingPropertyName_WhenTypeNameEndsWithEOF()
+        {
+            // Arrange
+            var errors = new List<RazorError>();
+            var documentContent = "@inject    IMyServi";
+            var factory = SpanFactory.CreateCsHtml();
+            var expectedSpans = new Span[]
+            {
+                factory.EmptyHtml(),
+                factory.CodeTransition(SyntaxConstants.TransitionString)
+                    .Accepts(AcceptedCharacters.None),
+                factory.MetaCode("inject ")
+                    .Accepts(AcceptedCharacters.None),
+                factory.Code("   IMyServi")
+                    .As(new InjectParameterGenerator("IMyServi", string.Empty)),
+            };
+            var expectedErrors = new[]
+            {
+                new RazorError("A property name must be specified when using the 'inject' statement. " +
+                               "Format for a 'inject' statement is '@inject <Type Name> <Property Name>'.",
+                                new SourceLocation(19, 0, 19), 1)
+            };
+
+            // Act
+            var spans = ParseDocument(documentContent, errors);
+
+            // Assert
+            Assert.Equal(expectedSpans, spans);
+            Assert.Equal(expectedErrors, errors);
+        }
+
         private static List<Span> ParseDocument(string documentContents,
                                                 List<RazorError> errors = null,
                                                 List<LineMapping> lineMappings = null)
@@ -379,7 +442,12 @@ namespace Microsoft.AspNet.Mvc.Razor
             var markupParser = new HtmlMarkupParser();
             var codeParser = new TestMvcCSharpRazorCodeParser();
             var reader = new SeekableTextReader(documentContents);
-            var context = new ParserContext(reader, codeParser, markupParser, markupParser);
+            var context = new ParserContext(
+                reader,
+                codeParser,
+                markupParser,
+                markupParser,
+                new ParserErrorSink());
             codeParser.Context = context;
             markupParser.Context = context;
             markupParser.ParseDocument();

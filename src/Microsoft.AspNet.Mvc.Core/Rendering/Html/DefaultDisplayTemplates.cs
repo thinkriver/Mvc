@@ -55,7 +55,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
             foreach (var item in TriStateValues(value))
             {
                 var encodedText = html.Encode(item.Text);
-                var option = HtmlHelper.GenerateOption(item, encodedText);
+                var option = DefaultHtmlGenerator.GenerateOption(item, encodedText);
                 builder.Append(option);
             }
 
@@ -124,8 +124,8 @@ namespace Microsoft.AspNet.Mvc.Rendering
                 var result = new StringBuilder();
 
                 var serviceProvider = html.ViewContext.HttpContext.RequestServices;
-                var metadataProvider = serviceProvider.GetService<IModelMetadataProvider>();
-                var viewEngine = serviceProvider.GetService<ICompositeViewEngine>();
+                var metadataProvider = serviceProvider.GetRequiredService<IModelMetadataProvider>();
+                var viewEngine = serviceProvider.GetRequiredService<ICompositeViewEngine>();
 
                 var index = 0;
                 foreach (var item in collection)
@@ -186,7 +186,11 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
         public static string HiddenInputTemplate(IHtmlHelper html)
         {
-            // TODO: add ModelMetadata.HideSurroundingHtml and use here (return string.Empty)
+            if (html.ViewData.ModelMetadata.HideSurroundingHtml)
+            {
+                return string.Empty;
+            }
+
             return StringTemplate(html);
         }
 
@@ -209,17 +213,23 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
             if (templateInfo.TemplateDepth > 1)
             {
-                return modelMetadata.Model == null ? modelMetadata.NullDisplayText : modelMetadata.SimpleDisplayText;
+                var text = modelMetadata.SimpleDisplayText;
+                if (modelMetadata.HtmlEncode)
+                {
+                    text = html.Encode(text);
+                }
+
+                return text;
             }
 
             var serviceProvider = html.ViewContext.HttpContext.RequestServices;
-            var viewEngine = serviceProvider.GetService<ICompositeViewEngine>();
+            var viewEngine = serviceProvider.GetRequiredService<ICompositeViewEngine>();
 
             foreach (var propertyMetadata in modelMetadata.Properties.Where(pm => ShouldShow(pm, templateInfo)))
             {
                 var divTag = new TagBuilder("div");
 
-                // TODO: add ModelMetadata.HideSurroundingHtml and use here (skip this block)
+                if (!propertyMetadata.HideSurroundingHtml)
                 {
                     var label = propertyMetadata.GetDisplayName();
                     if (!string.IsNullOrEmpty(label))
@@ -248,7 +258,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
                 builder.Append(templateBuilder.Build());
 
-                // TODO: add ModelMetadata.HideSurroundingHtml and use here (skip this block)
+                if (!propertyMetadata.HideSurroundingHtml)
                 {
                     builder.AppendLine(divTag.ToString(TagRenderMode.EndTag));
                 }

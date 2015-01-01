@@ -20,32 +20,32 @@ namespace Microsoft.AspNet.Mvc.Rendering
         private static readonly Dictionary<string, Func<IHtmlHelper, string>> _defaultDisplayActions =
             new Dictionary<string, Func<IHtmlHelper, string>>(StringComparer.OrdinalIgnoreCase)
             {
+                { "Collection", DefaultDisplayTemplates.CollectionTemplate },
                 { "EmailAddress", DefaultDisplayTemplates.EmailAddressTemplate },
                 { "HiddenInput", DefaultDisplayTemplates.HiddenInputTemplate },
                 { "Html", DefaultDisplayTemplates.HtmlTemplate },
                 { "Text", DefaultDisplayTemplates.StringTemplate },
                 { "Url", DefaultDisplayTemplates.UrlTemplate },
-                { "Collection", DefaultDisplayTemplates.CollectionTemplate },
                 { typeof(bool).Name, DefaultDisplayTemplates.BooleanTemplate },
                 { typeof(decimal).Name, DefaultDisplayTemplates.DecimalTemplate },
                 { typeof(string).Name, DefaultDisplayTemplates.StringTemplate },
                 { typeof(object).Name, DefaultDisplayTemplates.ObjectTemplate },
             };
 
-        // TODO: Add DefaultEditorTemplates.MultilineTextTemplate and place in this dictionary.
         private static readonly Dictionary<string, Func<IHtmlHelper, string>> _defaultEditorActions =
             new Dictionary<string, Func<IHtmlHelper, string>>(StringComparer.OrdinalIgnoreCase)
             {
-                { "HiddenInput", DefaultEditorTemplates.HiddenInputTemplate },
-                { "Password", DefaultEditorTemplates.PasswordTemplate },
-                { "Text", DefaultEditorTemplates.StringTemplate },
                 { "Collection", DefaultEditorTemplates.CollectionTemplate },
-                { "PhoneNumber", DefaultEditorTemplates.PhoneNumberInputTemplate },
-                { "Url", DefaultEditorTemplates.UrlInputTemplate },
                 { "EmailAddress", DefaultEditorTemplates.EmailAddressInputTemplate },
+                { "HiddenInput", DefaultEditorTemplates.HiddenInputTemplate },
+                { "MultilineText", DefaultEditorTemplates.MultilineTemplate },
+                { "Password", DefaultEditorTemplates.PasswordTemplate },
+                { "PhoneNumber", DefaultEditorTemplates.PhoneNumberInputTemplate },
+                { "Text", DefaultEditorTemplates.StringTemplate },
+                { "Url", DefaultEditorTemplates.UrlInputTemplate },
+                { "Date", DefaultEditorTemplates.DateInputTemplate },
                 { "DateTime", DefaultEditorTemplates.DateTimeInputTemplate },
                 { "DateTime-local", DefaultEditorTemplates.DateTimeLocalInputTemplate },
-                { "Date", DefaultEditorTemplates.DateInputTemplate },
                 { "Time", DefaultEditorTemplates.TimeInputTemplate },
                 { typeof(byte).Name, DefaultEditorTemplates.NumberInputTemplate },
                 { typeof(sbyte).Name, DefaultEditorTemplates.NumberInputTemplate },
@@ -88,19 +88,18 @@ namespace Microsoft.AspNet.Mvc.Rendering
             {
                 var fullViewName = modeViewPath + "/" + viewName;
 
-                // Forcing synchronous behavior so users don't have to await templates.
-                var viewEngineResult = _viewEngine.FindPartialView(_viewContext.RouteData.Values, fullViewName);
+                var viewEngineResult = _viewEngine.FindPartialView(_viewContext, fullViewName);
                 if (viewEngineResult.Success)
                 {
                     using (var writer = new StringWriter(CultureInfo.InvariantCulture))
                     {
                         // Forcing synchronous behavior so users don't have to await templates.
-                        // TODO: Pass through TempData once implemented.
                         var view = viewEngineResult.View;
                         using (view as IDisposable)
                         {
                             var viewContext = new ViewContext(_viewContext, viewEngineResult.View, _viewData, writer);
-                            viewEngineResult.View.RenderAsync(viewContext).Wait();
+                            var renderTask = viewEngineResult.View.RenderAsync(viewContext);
+                            TaskHelper.WaitAndThrowIfFaulted(renderTask);
                             return writer.ToString();
                         }
                     }
@@ -196,7 +195,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
         private static IHtmlHelper MakeHtmlHelper(ViewContext viewContext, ViewDataDictionary viewData)
         {
-            var newHelper = viewContext.HttpContext.RequestServices.GetService<IHtmlHelper>();
+            var newHelper = viewContext.HttpContext.RequestServices.GetRequiredService<IHtmlHelper>();
 
             var contextable = newHelper as ICanHasViewContext;
             if (contextable != null)

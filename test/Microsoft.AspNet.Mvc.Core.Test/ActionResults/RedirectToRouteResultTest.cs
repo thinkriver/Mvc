@@ -14,7 +14,7 @@ namespace Microsoft.AspNet.Mvc.Core
     public class RedirectToRouteResultTest
     {
         [Theory]
-        [MemberData("RedirectToRouteData")]
+        [MemberData(nameof(RedirectToRouteData))]
         public async void RedirectToRoute_Execute_PassesCorrectValuesToRedirect(object values)
         {
             // Arrange
@@ -53,7 +53,7 @@ namespace Microsoft.AspNet.Mvc.Core
                                                   new ActionDescriptor());
 
             IUrlHelper urlHelper = GetMockUrlHelper(returnValue: null);
-            RedirectToRouteResult result = new RedirectToRouteResult(urlHelper, 
+            RedirectToRouteResult result = new RedirectToRouteResult(urlHelper,
                                                                      null,
                                                                      new Dictionary<string, object>());
 
@@ -77,7 +77,7 @@ namespace Microsoft.AspNet.Mvc.Core
                     };
                 yield return
                     new object[] {
-                        new RouteValueDictionary(new Dictionary<string, string>() { 
+                        new RouteValueDictionary(new Dictionary<string, string>() {
                                                         { "test", "case" }, { "sample", "route" } })
                     };
             }

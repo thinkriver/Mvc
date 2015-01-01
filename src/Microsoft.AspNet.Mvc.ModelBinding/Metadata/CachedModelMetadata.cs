@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 
 namespace Microsoft.AspNet.Mvc.ModelBinding
 {
@@ -17,21 +18,43 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
     {
         private bool _convertEmptyStringToNull;
         private string _nullDisplayText;
+        private string _dataTypeName;
         private string _description;
+        private string _displayFormatString;
+        private string _displayName;
+        private string _editFormatString;
+        private bool _hasNonDefaultEditFormat;
+        private bool _hideSurroundingHtml;
+        private bool _htmlEncode;
         private bool _isReadOnly;
         private bool _isComplexType;
         private bool _isRequired;
         private bool _showForDisplay;
         private bool _showForEdit;
+        private IBinderMetadata _binderMetadata;
+        private string _binderModelName;
+        private IPropertyBindingPredicateProvider _propertyBindingPredicateProvider;
+        private Type _binderType;
 
         private bool _convertEmptyStringToNullComputed;
         private bool _nullDisplayTextComputed;
+        private bool _dataTypeNameComputed;
         private bool _descriptionComputed;
+        private bool _displayFormatStringComputed;
+        private bool _displayNameComputed;
+        private bool _editFormatStringComputed;
+        private bool _hasNonDefaultEditFormatComputed;
+        private bool _hideSurroundingHtmlComputed;
+        private bool _htmlEncodeComputed;
         private bool _isReadOnlyComputed;
         private bool _isComplexTypeComputed;
         private bool _isRequiredComputed;
         private bool _showForDisplayComputed;
         private bool _showForEditComputed;
+        private bool _isBinderMetadataComputed;
+        private bool _isBinderModelNameComputed;
+        private bool _isBinderTypeComputed;
+        private bool _propertyBindingPredicateProviderComputed;
 
         // Constructor for creating real instances of the metadata class based on a prototype
         protected CachedModelMetadata(CachedModelMetadata<TPrototypeCache> prototype, Func<object> modelAccessor)
@@ -43,7 +66,6 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
         {
             CacheKey = prototype.CacheKey;
             PrototypeCache = prototype.PrototypeCache;
-
             _isComplexType = prototype.IsComplexType;
             _isComplexTypeComputed = true;
         }
@@ -59,6 +81,49 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             PrototypeCache = prototypeCache;
         }
 
+        /// <inheritdoc />
+        public sealed override IBinderMetadata BinderMetadata
+        {
+            get
+            {
+                if (!_isBinderMetadataComputed)
+                {
+                    _binderMetadata = ComputeBinderMetadata();
+                    _isBinderMetadataComputed = true;
+                }
+
+                return _binderMetadata;
+            }
+
+            set
+            {
+                _binderMetadata = value;
+                _isBinderMetadataComputed = true;
+            }
+            }
+
+        /// <inheritdoc />
+        public sealed override string BinderModelName
+        {
+            get
+            {
+                if (!_isBinderModelNameComputed)
+                {
+                    _binderModelName = ComputeBinderModelNamePrefix();
+                    _isBinderModelNameComputed = true;
+                }
+
+                return _binderModelName;
+            }
+
+            set
+            {
+                _binderModelName = value;
+                _isBinderModelNameComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
         public sealed override bool ConvertEmptyStringToNull
         {
             get
@@ -77,24 +142,28 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
-        public sealed override string NullDisplayText
+        /// <inheritdoc />
+        public sealed override string DataTypeName
         {
             get
             {
-                if (!_nullDisplayTextComputed)
+                if (!_dataTypeNameComputed)
                 {
-                    _nullDisplayText = ComputeNullDisplayText();
-                    _nullDisplayTextComputed = true;
+                    _dataTypeName = ComputeDataTypeName();
+                    _dataTypeNameComputed = true;
                 }
-                return _nullDisplayText;
+
+                return _dataTypeName;
             }
+
             set
             {
-                _nullDisplayText = value;
-                _nullDisplayTextComputed = true;
+                _dataTypeName = value;
+                _dataTypeNameComputed = true;
             }
         }
 
+        /// <inheritdoc />
         public sealed override string Description
         {
             get
@@ -113,6 +182,132 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
+        /// <inheritdoc />
+        public sealed override string DisplayFormatString
+        {
+            get
+            {
+                if (!_displayFormatStringComputed)
+                {
+                    _displayFormatString = ComputeDisplayFormatString();
+                    _displayFormatStringComputed = true;
+                }
+
+                return _displayFormatString;
+            }
+
+            set
+            {
+                _displayFormatString = value;
+                _displayFormatStringComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
+        public sealed override string DisplayName
+        {
+            get
+            {
+                if (!_displayNameComputed)
+                {
+                    _displayName = ComputeDisplayName();
+                    _displayNameComputed = true;
+                }
+
+                return _displayName;
+            }
+            set
+            {
+                _displayName = value;
+                _displayNameComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
+        public sealed override string EditFormatString
+        {
+            get
+            {
+                if (!_editFormatStringComputed)
+                {
+                    _editFormatString = ComputeEditFormatString();
+                    _editFormatStringComputed = true;
+                }
+
+                return _editFormatString;
+            }
+
+            set
+            {
+                _editFormatString = value;
+                _editFormatStringComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
+        public sealed override bool HasNonDefaultEditFormat
+        {
+            get
+            {
+                if (!_hasNonDefaultEditFormatComputed)
+                {
+                    _hasNonDefaultEditFormat = ComputeHasNonDefaultEditFormat();
+                    _hasNonDefaultEditFormatComputed = true;
+                }
+
+                return _hasNonDefaultEditFormat;
+            }
+
+            set
+            {
+                _hasNonDefaultEditFormat = value;
+                _hasNonDefaultEditFormatComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
+        public sealed override bool HideSurroundingHtml
+        {
+            get
+            {
+                if (!_hideSurroundingHtmlComputed)
+                {
+                    _hideSurroundingHtml = ComputeHideSurroundingHtml();
+                    _hideSurroundingHtmlComputed = true;
+                }
+
+                return _hideSurroundingHtml;
+            }
+
+            set
+            {
+                _hideSurroundingHtml = value;
+                _hideSurroundingHtmlComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
+        public sealed override bool HtmlEncode
+        {
+            get
+            {
+                if (!_htmlEncodeComputed)
+                {
+                    _htmlEncode = ComputeHtmlEncode();
+                    _htmlEncodeComputed = true;
+                }
+
+                return _htmlEncode;
+            }
+
+            set
+            {
+                _htmlEncode = value;
+                _htmlEncodeComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
         public sealed override bool IsReadOnly
         {
             get
@@ -131,6 +326,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
+        /// <inheritdoc />
         public sealed override bool IsRequired
         {
             get
@@ -149,6 +345,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
+        /// <inheritdoc />
         public sealed override bool IsComplexType
         {
             get
@@ -162,6 +359,45 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
+        /// <inheritdoc />
+        public sealed override string NullDisplayText
+        {
+            get
+            {
+                if (!_nullDisplayTextComputed)
+                {
+                    _nullDisplayText = ComputeNullDisplayText();
+                    _nullDisplayTextComputed = true;
+                }
+                return _nullDisplayText;
+            }
+            set
+            {
+                _nullDisplayText = value;
+                _nullDisplayTextComputed = true;
+            }
+        }
+
+        public sealed override IPropertyBindingPredicateProvider PropertyBindingPredicateProvider
+        {
+            get
+            {
+                if (!_propertyBindingPredicateProviderComputed)
+                {
+                    _propertyBindingPredicateProvider = ComputePropertyBindingPredicateProvider();
+                    _propertyBindingPredicateProviderComputed = true;
+                }
+                return _propertyBindingPredicateProvider;
+            }
+
+            set
+            {
+                _propertyBindingPredicateProvider = value;
+                _propertyBindingPredicateProviderComputed = true;
+            }
+        }
+
+        /// <inheritdoc />
         public sealed override bool ShowForDisplay
         {
             get
@@ -180,6 +416,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
+        /// <inheritdoc />
         public sealed override bool ShowForEdit
         {
             get
@@ -198,21 +435,129 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             }
         }
 
+        /// <inheritdoc />
+        public sealed override string SimpleDisplayText
+        {
+            get
+            {
+                // Value already cached in ModelMetadata. That class also already exposes ComputeSimpleDisplayText()
+                // for overrides. Sealed here for consistency with other properties.
+                return base.SimpleDisplayText;
+            }
+            set
+            {
+                base.SimpleDisplayText = value;
+            }
+        }
+
+        /// <inheritdoc />
+        public sealed override Type BinderType
+        {
+            get
+            {
+                if (!_isBinderTypeComputed)
+                {
+                    _binderType = ComputeBinderType();
+                    _isBinderTypeComputed = true;
+                }
+                return _binderType;
+            }
+            set
+            {
+                _binderType = value;
+                _isBinderTypeComputed = true;
+            }
+        }
+
         protected TPrototypeCache PrototypeCache { get; set; }
+
+        protected virtual Type ComputeBinderType()
+        {
+            return base.BinderType;
+        }
+
+        protected virtual IBinderMetadata ComputeBinderMetadata()
+        {
+            return base.BinderMetadata;
+        }
+
+        protected virtual IPropertyBindingPredicateProvider ComputePropertyBindingPredicateProvider()
+        {
+            return base.PropertyBindingPredicateProvider;
+        }
+
+        protected virtual string ComputeBinderModelNamePrefix()
+        {
+            return base.BinderModelName;
+        }
 
         protected virtual bool ComputeConvertEmptyStringToNull()
         {
             return base.ConvertEmptyStringToNull;
         }
 
-        protected virtual string ComputeNullDisplayText()
+        /// <summary>
+        /// Calculate the <see cref="DataTypeName"/> value.
+        /// </summary>
+        /// <returns>Calculated <see cref="DataTypeName"/> value.</returns>
+        protected virtual string ComputeDataTypeName()
         {
-            return base.NullDisplayText;
+            return base.DataTypeName;
         }
 
         protected virtual string ComputeDescription()
         {
             return base.Description;
+        }
+
+        /// <summary>
+        /// Calculate the <see cref="DisplayFormatString"/> value.
+        /// </summary>
+        /// <returns>Calculated <see cref="DisplayFormatString"/> value.</returns>
+        protected virtual string ComputeDisplayFormatString()
+        {
+            return base.DisplayFormatString;
+        }
+
+        protected virtual string ComputeDisplayName()
+        {
+            return base.DisplayName;
+        }
+
+        /// <summary>
+        /// Calculate the <see cref="EditFormatString"/> value.
+        /// </summary>
+        /// <returns>Calculated <see cref="EditFormatString"/> value.</returns>
+        protected virtual string ComputeEditFormatString()
+        {
+            return base.EditFormatString;
+        }
+
+        /// <summary>
+        /// Calculate the <see cref="HasNonDefaultEditFormat"/> value.
+        /// </summary>
+        /// <returns>Calculated <see cref="HasNonDefaultEditFormat"/> value.</returns>
+        protected virtual bool ComputeHasNonDefaultEditFormat()
+        {
+            return base.HasNonDefaultEditFormat;
+        }
+
+        /// <summary>
+        /// Calculate the <see cref="HideSurroundingHtml"/> value.
+        /// </summary>
+        /// <returns>Calculated <see cref="HideSurroundingHtml"/> value.</returns>
+        protected virtual bool ComputeHideSurroundingHtml()
+        {
+            return base.HideSurroundingHtml;
+        }
+
+        /// <summary>
+        /// Calculate the <see cref="HtmlEncode"/> value.
+        /// </summary>
+        /// <returns>Calculated <see cref="HtmlEncode"/> value.</returns>
+        protected virtual bool ComputeHtmlEncode()
+        {
+            return base.HtmlEncode;
         }
 
         protected virtual bool ComputeIsReadOnly()
@@ -228,6 +573,11 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
         protected virtual bool ComputeIsComplexType()
         {
             return base.IsComplexType;
+        }
+
+        protected virtual string ComputeNullDisplayText()
+        {
+            return base.NullDisplayText;
         }
 
         protected virtual bool ComputeShowForDisplay()

@@ -16,12 +16,10 @@ namespace Microsoft.AspNet.Mvc.Rendering
         /// Initializes a new instance of the <see cref="HtmlHelper{TModel}"/> class.
         /// </summary>
         public HtmlHelper(
+            [NotNull] IHtmlGenerator htmlGenerator,
             [NotNull] ICompositeViewEngine viewEngine,
-            [NotNull] IModelMetadataProvider metadataProvider,
-            [NotNull] IUrlHelper urlHelper,
-            [NotNull] AntiForgery antiForgeryInstance,
-            [NotNull] IActionBindingContextProvider actionBindingContextProvider)
-            : base(viewEngine, metadataProvider, urlHelper, antiForgeryInstance, actionBindingContextProvider)
+            [NotNull] IModelMetadataProvider metadataProvider)
+            : base(htmlGenerator, viewEngine, metadataProvider)
         {
         }
 
@@ -88,19 +86,19 @@ namespace Microsoft.AspNet.Mvc.Rendering
         }
 
         /// <inheritdoc />
-        public HtmlString DisplayNameFor<TValue>([NotNull] Expression<Func<TModel, TValue>> expression)
+        public string DisplayNameFor<TValue>([NotNull] Expression<Func<TModel, TValue>> expression)
         {
             var metadata = GetModelMetadata(expression);
             return GenerateDisplayName(metadata, ExpressionHelper.GetExpressionText(expression));
         }
 
         /// <inheritdoc />
-        public HtmlString DisplayNameForInnerType<TInnerModel, TValue>(
-            [NotNull] Expression<Func<TInnerModel, TValue>> expression)
+        public string DisplayNameForInnerType<TModelItem, TValue>(
+            [NotNull] Expression<Func<TModelItem, TValue>> expression)
         {
-            var metadata = ExpressionMetadataProvider.FromLambdaExpression<TInnerModel, TValue>(
+            var metadata = ExpressionMetadataProvider.FromLambdaExpression<TModelItem, TValue>(
                 expression,
-                new ViewDataDictionary<TInnerModel>(MetadataProvider),
+                new ViewDataDictionary<TModelItem>(ViewData, model: null),
                 MetadataProvider);
 
             var expressionText = ExpressionHelper.GetExpressionText(expression);
@@ -113,7 +111,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
         }
 
         /// <inheritdoc />
-        public HtmlString DisplayTextFor<TValue>([NotNull] Expression<Func<TModel, TValue>> expression)
+        public string DisplayTextFor<TValue>([NotNull] Expression<Func<TModel, TValue>> expression)
         {
             return GenerateDisplayText(GetModelMetadata(expression));
         }
@@ -144,7 +142,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
         }
 
         /// <inheritdoc />
-        public HtmlString IdFor<TProperty>([NotNull] Expression<Func<TModel, TProperty>> expression)
+        public string IdFor<TProperty>([NotNull] Expression<Func<TModel, TProperty>> expression)
         {
             return GenerateId(GetExpressionName(expression));
         }
@@ -172,7 +170,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
         }
 
         /// <inheritdoc />
-        public HtmlString NameFor<TProperty>([NotNull] Expression<Func<TModel, TProperty>> expression)
+        public string NameFor<TProperty>([NotNull] Expression<Func<TModel, TProperty>> expression)
         {
             var expressionName = GetExpressionName(expression);
             return Name(expressionName);
@@ -188,8 +186,10 @@ namespace Microsoft.AspNet.Mvc.Rendering
         }
 
         /// <inheritdoc />
-        public HtmlString RadioButtonFor<TProperty>([NotNull] Expression<Func<TModel, TProperty>> expression,
-            object value, object htmlAttributes)
+        public HtmlString RadioButtonFor<TProperty>(
+            [NotNull] Expression<Func<TModel, TProperty>> expression,
+            [NotNull] object value,
+            object htmlAttributes)
         {
             var metadata = GetModelMetadata(expression);
             return GenerateRadioButton(metadata, GetExpressionName(expression), value, isChecked: null,
@@ -206,7 +206,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
         /// <inheritdoc />
         public HtmlString TextBoxFor<TProperty>([NotNull] Expression<Func<TModel, TProperty>> expression,
-            string format, IDictionary<string, object> htmlAttributes)
+            string format, object htmlAttributes)
         {
             var metadata = GetModelMetadata(expression);
             return GenerateTextBox(metadata, GetExpressionName(expression), metadata.Model, format, htmlAttributes);
@@ -242,7 +242,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
         }
 
         /// <inheritdoc />
-        public HtmlString ValueFor<TProperty>(Expression<Func<TModel, TProperty>> expression, string format)
+        public string ValueFor<TProperty>([NotNull] Expression<Func<TModel, TProperty>> expression, string format)
         {
             var metadata = GetModelMetadata(expression);
             return GenerateValue(ExpressionHelper.GetExpressionText(expression), metadata.Model, format,

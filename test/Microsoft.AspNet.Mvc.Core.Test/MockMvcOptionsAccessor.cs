@@ -3,15 +3,20 @@
 
 using Microsoft.Framework.OptionsModel;
 
-namespace Microsoft.AspNet.Mvc.Test
+namespace Microsoft.AspNet.Mvc
 {
-    public class MockMvcOptionsAccessor : IOptionsAccessor<MvcOptions>
+    public class MockMvcOptionsAccessor : IOptions<MvcOptions>
     {
-	    public MockMvcOptionsAccessor()
-	    {
+        public MockMvcOptionsAccessor()
+        {
             Options = new MvcOptions();
-	    }
+        }
 
         public MvcOptions Options { get; private set; }
+
+        public MvcOptions GetNamedOptions(string name)
+        {
+            return Options;
+        }
     }
 }

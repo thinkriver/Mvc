@@ -2,8 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNet.Http;
@@ -70,7 +69,6 @@ namespace Microsoft.AspNet.Mvc
                 if (user != null)
                 {
                     // We only support ClaimsIdentity.
-                    // Todo remove this once httpContext.User moves to ClaimsIdentity.
                     return user.Identity as ClaimsIdentity;
                 }
             }
@@ -152,7 +150,7 @@ namespace Microsoft.AspNet.Mvc
                 oldCookieToken = newCookieToken = _generator.GenerateCookieToken();
             }
 
-            Contract.Assert(_validator.IsCookieTokenValid(oldCookieToken));
+            Debug.Assert(_validator.IsCookieTokenValid(oldCookieToken));
 
             var formToken = _generator.GenerateFormToken(
                 httpContext,
@@ -160,11 +158,11 @@ namespace Microsoft.AspNet.Mvc
                 oldCookieToken);
 
             return new AntiForgeryTokenSetInternal()
-                            {
-                                // Note : The new cookie would be null if the old cookie is valid.
-                                CookieToken = newCookieToken,
-                                FormToken = formToken
-                            };
+            {
+                // Note : The new cookie would be null if the old cookie is valid.
+                CookieToken = newCookieToken,
+                FormToken = formToken
+            };
         }
 
         private string Serialize(AntiForgeryToken token)

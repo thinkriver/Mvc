@@ -53,14 +53,14 @@ namespace Microsoft.AspNet.Mvc
                     user.Identity == null ||
                     !user.Identity.IsAuthenticated;
 
-                    if (userIsAnonymous && !HasAllowAnonymous(context))
-                    {
-                        Fail(context);
-                    }
+                if (userIsAnonymous && !HasAllowAnonymous(context))
+                {
+                    Fail(context);
+                }
             }
             else
             {
-                var authorizationService = httpContext.RequestServices.GetService<IAuthorizationService>();
+                var authorizationService = httpContext.RequestServices.GetRequiredService<IAuthorizationService>();
 
                 if (authorizationService == null)
                 {

@@ -4,9 +4,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNet.Mvc.Core;
 using Microsoft.AspNet.Routing;
 using Microsoft.AspNet.Routing.Template;
 using Microsoft.Framework.DependencyInjection;
+using Microsoft.Framework.Logging;
 
 namespace Microsoft.AspNet.Mvc.Routing
 {
@@ -26,72 +28,244 @@ namespace Microsoft.AspNet.Mvc.Routing
         {
             var actions = GetActionDescriptors(services);
 
-            // We're creating one AttributeRouteEntry per group, so we need to identify the distinct set of
-            // groups. It's guaranteed that all members of the group have the same template and precedence,
-            // so we only need to hang on to a single instance of the template.
-            var routeTemplatesByGroup = GroupTemplatesByGroupId(actions);
+            var inlineConstraintResolver = services.GetRequiredService<IInlineConstraintResolver>();
+            var routeInfos = GetRouteInfos(inlineConstraintResolver, actions);
 
-            var inlineConstraintResolver = services.GetService<IInlineConstraintResolver>();
-
-            var entries = new List<AttributeRouteEntry>();
-            foreach (var routeGroup in routeTemplatesByGroup)
+            // We're creating one AttributeRouteGenerationEntry per action. This allows us to match the intended
+            // action by expected route values, and then use the TemplateBinder to generate the link.
+            var generationEntries = new List<AttributeRouteLinkGenerationEntry>();
+            foreach (var routeInfo in routeInfos)
             {
-                var routeGroupId = routeGroup.Key;
-                var template = routeGroup.Value;
-
-                var parsedTemplate = TemplateParser.Parse(template, inlineConstraintResolver);
-                var precedence = AttributeRoutePrecedence.Compute(parsedTemplate);
-
-                entries.Add(new AttributeRouteEntry()
+                generationEntries.Add(new AttributeRouteLinkGenerationEntry()
                 {
-                    Precedence = precedence,
+                    Binder = new TemplateBinder(routeInfo.ParsedTemplate, routeInfo.Defaults),
+                    Defaults = routeInfo.Defaults,
+                    Constraints = routeInfo.Constraints,
+                    Order = routeInfo.Order,
+                    Precedence = routeInfo.Precedence,
+                    RequiredLinkValues = routeInfo.ActionDescriptor.RouteValueDefaults,
+                    RouteGroup = routeInfo.RouteGroup,
+                    Template = routeInfo.ParsedTemplate,
+                    TemplateText = routeInfo.RouteTemplate,
+                    Name = routeInfo.Name,
+                });
+            }
+
+            // We're creating one AttributeRouteMatchingEntry per group, so we need to identify the distinct set of
+            // groups. It's guaranteed that all members of the group have the same template and precedence,
+            // so we only need to hang on to a single instance of the RouteInfo for each group.
+            var distinctRouteInfosByGroup = GroupRouteInfosByGroupId(routeInfos);
+            var matchingEntries = new List<AttributeRouteMatchingEntry>();
+            foreach (var routeInfo in distinctRouteInfosByGroup)
+            {
+                matchingEntries.Add(new AttributeRouteMatchingEntry()
+                {
+                    Order = routeInfo.Order,
+                    Precedence = routeInfo.Precedence,
                     Route = new TemplateRoute(
                         target,
-                        template,
+                        routeInfo.RouteTemplate,
                         defaults: new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                         {
-                            { RouteGroupKey, routeGroupId },
+                            { RouteGroupKey, routeInfo.RouteGroup },
                         },
                         constraints: null,
+                        dataTokens: null,
                         inlineConstraintResolver: inlineConstraintResolver),
                 });
             }
 
-            return new AttributeRoute(target, entries);
+            return new AttributeRoute(
+                target,
+                matchingEntries,
+                generationEntries,
+                services.GetRequiredService<ILoggerFactory>());
         }
 
         private static IReadOnlyList<ActionDescriptor> GetActionDescriptors(IServiceProvider services)
         {
-            var actionDescriptorProvider = services.GetService<IActionDescriptorsCollectionProvider>();
+            var actionDescriptorProvider = services.GetRequiredService<IActionDescriptorsCollectionProvider>();
 
             var actionDescriptorsCollection = actionDescriptorProvider.ActionDescriptors;
             return actionDescriptorsCollection.Items;
         }
 
-        private static Dictionary<string, string> GroupTemplatesByGroupId(IReadOnlyList<ActionDescriptor> actions)
+        private static IEnumerable<RouteInfo> GroupRouteInfosByGroupId(List<RouteInfo> routeInfos)
         {
-            var routeTemplatesByGroup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var action in actions.Where(a => a.RouteTemplate != null))
-            {
-                var constraint = action.RouteConstraints
-                    .Where(c => c.RouteKey == AttributeRouting.RouteGroupKey)
-                    .FirstOrDefault();
-                if (constraint == null ||
-                    constraint.KeyHandling != RouteKeyHandling.RequireKey ||
-                    constraint.RouteValue == null)
-                {
-                    // This is unlikely to happen by default, but could happen through extensibility. Just ignore it.
-                    continue;
-                }
+            var routeInfosByGroupId = new Dictionary<string, RouteInfo>(StringComparer.OrdinalIgnoreCase);
 
-                var routeGroup = constraint.RouteValue;
-                if (!routeTemplatesByGroup.ContainsKey(routeGroup))
+            foreach (var routeInfo in routeInfos)
+            {
+                if (!routeInfosByGroupId.ContainsKey(routeInfo.RouteGroup))
                 {
-                    routeTemplatesByGroup.Add(routeGroup, action.RouteTemplate);
+                    routeInfosByGroupId.Add(routeInfo.RouteGroup, routeInfo);
                 }
             }
 
-            return routeTemplatesByGroup;
+            return routeInfosByGroupId.Values;
+        }
+
+        private static List<RouteInfo> GetRouteInfos(
+            IInlineConstraintResolver constraintResolver,
+            IReadOnlyList<ActionDescriptor> actions)
+        {
+            var routeInfos = new List<RouteInfo>();
+            var errors = new List<RouteInfo>();
+
+            // This keeps a cache of 'Template' objects. It's a fairly common case that multiple actions
+            // will use the same route template string; thus, the `Template` object can be shared.
+            //
+            // For a relatively simple route template, the `Template` object will hold about 500 bytes
+            // of memory, so sharing is worthwhile.
+            var templateCache = new Dictionary<string, RouteTemplate>(StringComparer.OrdinalIgnoreCase);
+
+            var attributeRoutedActions = actions.Where(a => a.AttributeRouteInfo != null &&
+                a.AttributeRouteInfo.Template != null);
+            foreach (var action in attributeRoutedActions)
+            {
+                var routeInfo = GetRouteInfo(constraintResolver, templateCache, action);
+                if (routeInfo.ErrorMessage == null)
+                {
+                    routeInfos.Add(routeInfo);
+                }
+                else
+                {
+                    errors.Add(routeInfo);
+                }
+            }
+
+            if (errors.Count > 0)
+            {
+                var allErrors = string.Join(
+                    Environment.NewLine + Environment.NewLine,
+                    errors.Select(
+                        e => Resources.FormatAttributeRoute_IndividualErrorMessage(
+                            e.ActionDescriptor.DisplayName,
+                            Environment.NewLine,
+                            e.ErrorMessage)));
+
+                var message = Resources.FormatAttributeRoute_AggregateErrorMessage(Environment.NewLine, allErrors);
+                throw new InvalidOperationException(message);
+            }
+
+            return routeInfos;
+        }
+
+        private static RouteInfo GetRouteInfo(
+            IInlineConstraintResolver constraintResolver,
+            Dictionary<string, RouteTemplate> templateCache,
+            ActionDescriptor action)
+        {
+            var constraint = action.RouteConstraints
+                .Where(c => c.RouteKey == AttributeRouting.RouteGroupKey)
+                .FirstOrDefault();
+            if (constraint == null ||
+                constraint.KeyHandling != RouteKeyHandling.RequireKey ||
+                constraint.RouteValue == null)
+            {
+                // This can happen if an ActionDescriptor has a route template, but doesn't have one of our
+                // special route group constraints. This is a good indication that the user is using a 3rd party
+                // routing system, or has customized their ADs in a way that we can no longer understand them.
+                //
+                // We just treat this case as an 'opt-out' of our attribute routing system.
+                return null;
+            }
+
+            var routeInfo = new RouteInfo()
+            {
+                ActionDescriptor = action,
+                RouteGroup = constraint.RouteValue,
+                RouteTemplate = action.AttributeRouteInfo.Template,
+            };
+
+            try
+            {
+                RouteTemplate parsedTemplate;
+                if (!templateCache.TryGetValue(action.AttributeRouteInfo.Template, out parsedTemplate))
+                {
+                    // Parsing with throw if the template is invalid.
+                    parsedTemplate = TemplateParser.Parse(action.AttributeRouteInfo.Template);
+                    templateCache.Add(action.AttributeRouteInfo.Template, parsedTemplate);
+                }
+
+                routeInfo.ParsedTemplate = parsedTemplate;
+            }
+            catch (Exception ex)
+            {
+                routeInfo.ErrorMessage = ex.Message;
+                return routeInfo;
+            }
+
+            foreach (var kvp in action.RouteValueDefaults)
+            {
+                foreach (var parameter in routeInfo.ParsedTemplate.Parameters)
+                {
+                    if (string.Equals(kvp.Key, parameter.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        routeInfo.ErrorMessage = Resources.FormatAttributeRoute_CannotContainParameter(
+                            routeInfo.RouteTemplate,
+                            kvp.Key,
+                            kvp.Value);
+
+                        return routeInfo;
+                    }
+                }
+            }
+
+            routeInfo.Order = action.AttributeRouteInfo.Order;
+
+            routeInfo.Precedence = AttributeRoutePrecedence.Compute(routeInfo.ParsedTemplate);
+
+            routeInfo.Name = action.AttributeRouteInfo.Name;
+
+            var constraintBuilder = new RouteConstraintBuilder(constraintResolver, routeInfo.RouteTemplate);
+
+            foreach (var parameter in routeInfo.ParsedTemplate.Parameters)
+            {
+                if (parameter.InlineConstraints != null)
+                {
+                    if (parameter.IsOptional)
+                    {
+                        constraintBuilder.SetOptional(parameter.Name);
+                    }
+
+                    foreach (var inlineConstraint in parameter.InlineConstraints)
+                    {
+                        constraintBuilder.AddResolvedConstraint(parameter.Name, inlineConstraint.Constraint);
+                    }
+                }
+            }
+
+            routeInfo.Constraints = constraintBuilder.Build();
+
+            routeInfo.Defaults = routeInfo.ParsedTemplate.Parameters
+                .Where(p => p.DefaultValue != null)
+                .ToDictionary(p => p.Name, p => p.DefaultValue, StringComparer.OrdinalIgnoreCase);
+
+            return routeInfo;
+        }
+
+        private class RouteInfo
+        {
+            public ActionDescriptor ActionDescriptor { get; set; }
+
+            public IReadOnlyDictionary<string, IRouteConstraint> Constraints { get; set; }
+
+            public IReadOnlyDictionary<string, object> Defaults { get; set; }
+
+            public string ErrorMessage { get; set; }
+
+            public RouteTemplate ParsedTemplate { get; set; }
+
+            public int Order { get; set; }
+
+            public decimal Precedence { get; set; }
+
+            public string RouteGroup { get; set; }
+
+            public string RouteTemplate { get; set; }
+
+            public string Name { get; set; }
         }
     }
 }

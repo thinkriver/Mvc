@@ -1,10 +1,13 @@
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+#if ASPNET50
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Microsoft.AspNet.Testing;
+using Moq;
 using Xunit;
 
 namespace Microsoft.AspNet.Mvc.ModelBinding
@@ -244,6 +247,27 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
         }
 
         [Fact]
+        public void Validate_ValidatesIfModelIsNull()
+        {
+            // Arrange
+            var modelMetadata = GetModelMetadata(typeof(ValidateAllPropertiesModel));
+            var node = new ModelValidationNode(modelMetadata, "theKey");
+
+            var context = CreateContext(modelMetadata);
+
+            // Act
+            node.Validate(context);
+
+            // Assert
+            var modelState = Assert.Single(context.ModelState);
+            Assert.Equal("theKey", modelState.Key);
+            Assert.Equal(ModelValidationState.Invalid, modelState.Value.ValidationState);
+
+            var error = Assert.Single(modelState.Value.Errors);
+            Assert.Equal("A value is required but was not present in the request.", error.ErrorMessage);
+        }
+
+        [Fact]
         [ReplaceCulture]
         public void Validate_ValidateAllProperties_AddsValidationErrors()
         {
@@ -276,6 +300,39 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             Assert.False(context.ModelState.ContainsKey("theKey"));
         }
 
+        [Fact]
+        [ReplaceCulture]
+        public void Validate_ShortCircuits_IfModelStateHasReachedMaxNumberOfErrors()
+        {
+            // Arrange
+            var model = new ValidateAllPropertiesModel
+            {
+                RequiredString = null /* error */,
+                RangedInt = 0 /* error */,
+                ValidString = "cat"  /* error */
+            };
+
+            var modelMetadata = GetModelMetadata(model);
+            var node = new ModelValidationNode(modelMetadata, "theKey")
+            {
+                ValidateAllProperties = true
+            };
+            var context = CreateContext(modelMetadata);
+            context.ModelState.MaxAllowedErrors = 3;
+            context.ModelState.AddModelError("somekey", "error text");
+
+            // Act
+            node.Validate(context);
+
+            // Assert
+            Assert.Equal(3, context.ModelState.Count);
+            Assert.IsType<TooManyModelErrorsException>(context.ModelState[""].Errors[0].Exception);
+            Assert.Equal(ValidationAttributeUtil.GetRequiredErrorMessage("RequiredString"),
+                        context.ModelState["theKey.RequiredString"].Errors[0].ErrorMessage);
+            Assert.False(context.ModelState.ContainsKey("theKey.RangedInt"));
+            Assert.False(context.ModelState.ContainsKey("theKey.ValidString"));
+        }
+
         private static ModelMetadata GetModelMetadata()
         {
             return new EmptyModelMetadataProvider().GetMetadataForType(null, typeof(object));
@@ -286,6 +343,11 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             return new DataAnnotationsModelMetadataProvider().GetMetadataForType(() => o, o.GetType());
         }
 
+        private static ModelMetadata GetModelMetadata(Type type)
+        {
+            return new DataAnnotationsModelMetadataProvider().GetMetadataForType(modelAccessor: null, modelType: type);
+        }
+
         private static ModelValidationContext CreateContext(ModelMetadata metadata = null)
         {
             var providers = new IModelValidatorProvider[]
@@ -294,8 +356,12 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
                 new DataMemberModelValidatorProvider()
             };
 
+            var provider = new Mock<IModelValidatorProviderProvider>();
+            provider.SetupGet(p => p.ModelValidatorProviders)
+                    .Returns(providers);
+
             return new ModelValidationContext(new EmptyModelMetadataProvider(),
-                                              providers,
+                                              new CompositeModelValidatorProvider(provider.Object),
                                               new ModelStateDictionary(),
                                               metadata,
                                               null);
@@ -344,3 +410,4 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
         }
     }
 }
+#endif

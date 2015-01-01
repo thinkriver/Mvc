@@ -6,28 +6,71 @@ using System.Linq.Expressions;
 
 namespace Microsoft.AspNet.Mvc.Rendering
 {
+    /// <summary>
+    /// Value-related extensions for <see cref="IHtmlHelper"/> and <see cref="IHtmlHelper{TModel}"/>.
+    /// </summary>
     public static class HtmlHelperValueExtensions
     {
-        public static HtmlString Value([NotNull] this IHtmlHelper htmlHelper, string name)
+        /// <summary>
+        /// Returns the formatted value for the specified expression <paramref name="name"/>.
+        /// </summary>
+        /// <param name="htmlHelper">The <see cref="IHtmlHelper"/> instance this method extends.</param>
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <returns>A <see cref="string"/> containing the formatted value.</returns>
+        /// <remarks>
+        /// Converts the expression result to a <see cref="string"/> directly.
+        /// </remarks>
+        public static string Value([NotNull] this IHtmlHelper htmlHelper, string name)
         {
             return htmlHelper.Value(name, format: null);
         }
 
-        public static HtmlString ValueFor<TModel, TProperty>(
+        /// <summary>
+        /// Returns the formatted value for the specified <paramref name="expression"/>.
+        /// </summary>
+        /// <param name="htmlHelper">The <see cref="IHtmlHelper{TModel}"/> instance this method extends.</param>
+        /// <param name="expression">An expression to be evaluated against the current model.</param>
+        /// <typeparam name="TModel">The type of the model.</typeparam>
+        /// <typeparam name="TProperty">The type of the <paramref name="expression"/> result.</typeparam>
+        /// <returns>A <see cref="string"/> containing the formatted value.</returns>
+        /// <remarks>
+        /// Converts the <paramref name="expression"/> result to a <see cref="string"/> directly.
+        /// </remarks>
+        public static string ValueFor<TModel, TProperty>(
             [NotNull] this IHtmlHelper<TModel> htmlHelper,
             [NotNull] Expression<Func<TModel, TProperty>> expression)
         {
             return htmlHelper.ValueFor(expression, format: null);
         }
 
-        public static HtmlString ValueForModel([NotNull] this IHtmlHelper htmlHelper)
+        /// <summary>
+        /// Returns the formatted value for the current model.
+        /// </summary>
+        /// <param name="htmlHelper">The <see cref="IHtmlHelper"/> instance this method extends.</param>
+        /// <returns>A <see cref="string"/> containing the formatted value.</returns>
+        /// <remarks>
+        /// Converts the model value to a <see cref="string"/> directly.
+        /// </remarks>
+        public static string ValueForModel([NotNull] this IHtmlHelper htmlHelper)
         {
-            return ValueForModel(htmlHelper, format: null);
+            return htmlHelper.Value(name: null, format: null);
         }
 
-        public static HtmlString ValueForModel([NotNull] this IHtmlHelper htmlHelper, string format)
+        /// <summary>
+        /// Returns the formatted value for the current model.
+        /// </summary>
+        /// <param name="htmlHelper">The <see cref="IHtmlHelper"/> instance this method extends.</param>
+        /// <param name="format">
+        /// The composite format <see cref="string"/> (see http://msdn.microsoft.com/en-us/library/txafckwd.aspx).
+        /// </param>
+        /// <returns>A <see cref="string"/> containing the formatted value.</returns>
+        /// <remarks>
+        /// Converts the model value to a <see cref="string"/> directly if
+        /// <paramref name="format"/> is <c>null</c> or empty.
+        /// </remarks>
+        public static string ValueForModel([NotNull] this IHtmlHelper htmlHelper, string format)
         {
-            return htmlHelper.Value(string.Empty, format);
+            return htmlHelper.Value(name: null, format: format);
         }
     }
 }

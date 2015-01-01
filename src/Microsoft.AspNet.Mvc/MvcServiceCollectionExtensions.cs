@@ -3,30 +3,27 @@
 
 using Microsoft.AspNet.Mvc;
 using Microsoft.AspNet.Routing;
+using Microsoft.AspNet.Security.DataProtection;
 using Microsoft.Framework.ConfigurationModel;
-using Microsoft.Framework.OptionsModel;
 
 namespace Microsoft.Framework.DependencyInjection
 {
     public static class MvcServiceCollectionExtensions
     {
-        public static IServiceCollection AddMvc(this IServiceCollection services)
+        public static IServiceCollection AddMvc(this IServiceCollection services, IConfiguration configuration = null)
         {
-            services.Add(RoutingServices.GetDefaultServices());
-            AddMvcRouteOptions(services);
-            return services.Add(MvcServices.GetDefaultServices());
+            ConfigureDefaultServices(services, configuration);
+            services.TryAdd(MvcServices.GetDefaultServices(configuration));
+            return services;
         }
 
-        public static IServiceCollection AddMvc(this IServiceCollection services, IConfiguration configuration)
+        private static void ConfigureDefaultServices(IServiceCollection services, IConfiguration configuration)
         {
-            services.Add(RoutingServices.GetDefaultServices());
-            AddMvcRouteOptions(services);
-            return services.Add(MvcServices.GetDefaultServices(configuration));
-        }
-
-        private static void AddMvcRouteOptions(IServiceCollection services)
-        {
-            services.SetupOptions<RouteOptions>(routeOptions =>
+            services.AddOptions(configuration);
+            services.AddDataProtection(configuration);
+            services.AddRouting(configuration);
+            services.AddContextAccessor(configuration);
+            services.Configure<RouteOptions>(routeOptions =>
                                                     routeOptions.ConstraintMap
                                                          .Add("exists",
                                                               typeof(KnownRouteValueConstraint)));

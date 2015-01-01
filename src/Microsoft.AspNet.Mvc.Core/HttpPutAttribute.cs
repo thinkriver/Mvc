@@ -1,19 +1,32 @@
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Collections.Generic;
 
 namespace Microsoft.AspNet.Mvc
 {
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public sealed class HttpPutAttribute : Attribute, IActionHttpMethodProvider
+    /// <summary>
+    /// Identifies an action that only supports the HTTP PUT method.
+    /// </summary>
+    public class HttpPutAttribute : HttpMethodAttribute
     {
         private static readonly IEnumerable<string> _supportedMethods = new string[] { "PUT" };
 
-        public IEnumerable<string> HttpMethods
+        /// <summary>
+        /// Creates a new <see cref="HttpPutAttribute"/>.
+        /// </summary>
+        public HttpPutAttribute()
+            : base(_supportedMethods)
         {
-            get { return _supportedMethods; }
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="HttpPutAttribute"/> with the given route template.
+        /// </summary>
+        /// <param name="template">The route template. May not be null.</param>
+        public HttpPutAttribute([NotNull] string template)
+            : base(_supportedMethods, template)
+        {
         }
     }
 }

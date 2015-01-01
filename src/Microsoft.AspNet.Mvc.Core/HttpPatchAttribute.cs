@@ -1,19 +1,32 @@
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Collections.Generic;
 
 namespace Microsoft.AspNet.Mvc
 {
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public sealed class HttpPatchAttribute : Attribute, IActionHttpMethodProvider
+    /// <summary>
+    /// Identifies an action that only supports the HTTP PATCH method.
+    /// </summary>
+    public class HttpPatchAttribute : HttpMethodAttribute
     {
         private static readonly IEnumerable<string> _supportedMethods = new string[] { "PATCH" };
 
-        public IEnumerable<string> HttpMethods
+        /// <summary>
+        /// Creates a new <see cref="HttpPatchAttribute"/>.
+        /// </summary>
+        public HttpPatchAttribute()
+            : base(_supportedMethods)
         {
-            get { return _supportedMethods; }
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="HttpPatchAttribute"/> with the given route template.
+        /// </summary>
+        /// <param name="template">The route template. May not be null.</param>
+        public HttpPatchAttribute([NotNull] string template)
+            : base(_supportedMethods, template)
+        {
         }
     }
 }

@@ -32,15 +32,20 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
         private static string BooleanTemplateCheckbox(IHtmlHelper html, bool value)
         {
-            return html.CheckBox(string.Empty, value, CreateHtmlAttributes(html, "check-box")).ToString();
+            return html.CheckBox(
+                name: null,
+                isChecked: value,
+                htmlAttributes: CreateHtmlAttributes(html, "check-box"))
+                    .ToString();
         }
 
         private static string BooleanTemplateDropDownList(IHtmlHelper html, bool? value)
         {
             return html.DropDownList(
-                string.Empty,
-                DefaultDisplayTemplates.TriStateValues(value),
-                CreateHtmlAttributes(html, "list-box tri-state"))
+                name: null,
+                selectList: DefaultDisplayTemplates.TriStateValues(value),
+                optionLabel: null,
+                htmlAttributes: CreateHtmlAttributes(html, "list-box tri-state"))
                     .ToString();
         }
 
@@ -79,8 +84,8 @@ namespace Microsoft.AspNet.Mvc.Rendering
                 var result = new StringBuilder();
 
                 var serviceProvider = html.ViewContext.HttpContext.RequestServices;
-                var metadataProvider = serviceProvider.GetService<IModelMetadataProvider>();
-                var viewEngine = serviceProvider.GetService<ICompositeViewEngine>();
+                var metadataProvider = serviceProvider.GetRequiredService<IModelMetadataProvider>();
+                var viewEngine = serviceProvider.GetRequiredService<ICompositeViewEngine>();
 
                 var index = 0;
                 foreach (var item in collection)
@@ -130,11 +135,17 @@ namespace Microsoft.AspNet.Mvc.Rendering
         public static string HiddenInputTemplate(IHtmlHelper html)
         {
             var viewData = html.ViewData;
-
-            // TODO: add ModelMetadata.HideSurroundingHtml and use here (set result to string.Empty)
-            var result = DefaultDisplayTemplates.StringTemplate(html);
-
             var model = viewData.Model;
+
+            string result;
+            if (viewData.ModelMetadata.HideSurroundingHtml)
+            {
+                result = string.Empty;
+            }
+            else
+            {
+                result = DefaultDisplayTemplates.StringTemplate(html);
+            }
 
             // Special-case opaque values and arbitrary binary data.
             var modelAsByteArray = model as byte[];
@@ -144,7 +155,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
             }
 
             var htmlAttributesObject = viewData[HtmlAttributeKey];
-            var hiddenResult = html.Hidden(string.Empty, model, htmlAttributesObject);
+            var hiddenResult = html.Hidden(name: null, value: model, htmlAttributes: htmlAttributesObject);
             result += hiddenResult.ToString();
 
             return result;
@@ -201,6 +212,17 @@ namespace Microsoft.AspNet.Mvc.Rendering
             return htmlAttributes;
         }
 
+        public static string MultilineTemplate(IHtmlHelper html)
+        {
+            var htmlString = html.TextArea(
+                name: string.Empty,
+                value: html.ViewContext.ViewData.TemplateInfo.FormattedModelValue.ToString(),
+                rows: 0,
+                columns: 0,
+                htmlAttributes: CreateHtmlAttributes(html, "text-box multi-line"));
+            return htmlString.ToString();
+        }
+
         public static string ObjectTemplate(IHtmlHelper html)
         {
             var viewData = html.ViewData;
@@ -210,19 +232,34 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
             if (templateInfo.TemplateDepth > 1)
             {
-                return modelMetadata.Model == null ? modelMetadata.NullDisplayText : modelMetadata.SimpleDisplayText;
+                if (modelMetadata.Model == null)
+                {
+                    return modelMetadata.NullDisplayText;
+                }
+
+                var text = modelMetadata.SimpleDisplayText;
+                if (modelMetadata.HtmlEncode)
+                {
+                    text = html.Encode(text);
+                }
+
+                return text;
             }
 
             var serviceProvider = html.ViewContext.HttpContext.RequestServices;
-            var viewEngine = serviceProvider.GetService<ICompositeViewEngine>();
+            var viewEngine = serviceProvider.GetRequiredService<ICompositeViewEngine>();
 
             foreach (var propertyMetadata in modelMetadata.Properties.Where(pm => ShouldShow(pm, templateInfo)))
             {
                 var divTag = new TagBuilder("div");
 
-                // TODO: add ModelMetadata.HideSurroundingHtml and use here (skip this block)
+                if (!propertyMetadata.HideSurroundingHtml)
                 {
-                    var label = html.Label(propertyMetadata.PropertyName).ToString();
+                    var label = html.Label(
+                        propertyMetadata.PropertyName,
+                        labelText: null,
+                        htmlAttributes: null)
+                            .ToString();
                     if (!string.IsNullOrEmpty(label))
                     {
                         divTag.AddCssClass("editor-label");
@@ -249,10 +286,15 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
                 builder.Append(templateBuilder.Build());
 
-                // TODO: add ModelMetadata.HideSurroundingHtml and use here (skip this block)
-                // TODO: Add IHtmlHelper.ValidationMessage() and call just prior to closing the <div/> tag
+                if (!propertyMetadata.HideSurroundingHtml)
                 {
                     builder.Append(" ");
+                    builder.Append(html.ValidationMessage(
+                        propertyMetadata.PropertyName,
+                        message: null,
+                        htmlAttributes: null,
+                        tag: null));
+
                     builder.AppendLine(divTag.ToString(TagRenderMode.EndTag));
                 }
             }
@@ -262,9 +304,10 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
         public static string PasswordTemplate(IHtmlHelper html)
         {
-            return html.Password(string.Empty,
-                html.ViewData.TemplateInfo.FormattedModelValue,
-                CreateHtmlAttributes(html, "text-box single-line password"))
+            return html.Password(
+                name: null,
+                value: html.ViewData.TemplateInfo.FormattedModelValue,
+                htmlAttributes: CreateHtmlAttributes(html, "text-box single-line password"))
                     .ToString();
         }
 
@@ -334,9 +377,7 @@ namespace Microsoft.AspNet.Mvc.Rendering
 
             var metadata = html.ViewData.ModelMetadata;
             var value = metadata.Model;
-
-            // TODO: add ModelMetadata.HasNonDefaultEditFormat and use here (also return if true)
-            if (html.ViewData.TemplateInfo.FormattedModelValue != value)
+            if (html.ViewData.TemplateInfo.FormattedModelValue != value && metadata.HasNonDefaultEditFormat)
             {
                 return;
             }
@@ -356,8 +397,9 @@ namespace Microsoft.AspNet.Mvc.Rendering
         private static string GenerateTextBox(IHtmlHelper html, string inputType, object value)
         {
             return html.TextBox(
-                name: string.Empty,
+                name: null,
                 value: value,
+                format: null,
                 htmlAttributes: CreateHtmlAttributes(html, className: "text-box single-line", inputType: inputType))
                     .ToString();
         }

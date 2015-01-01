@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNet.Mvc.ModelBinding;
 
 namespace Microsoft.AspNet.Mvc.Rendering
 {
@@ -12,9 +13,9 @@ namespace Microsoft.AspNet.Mvc.Rendering
     public interface IHtmlHelper
     {
         /// <summary>
-        /// Set this property to <see cref="Mvc.Html5DateRenderingMode.Rfc3339"/> to have templated helpers such as
-        /// <see cref="Editor"/> and <see cref="EditorFor"/> render date and time values as RFC 3339 compliant strings.
-        /// By default these helpers render dates and times using the current culture.
+        /// Set this property to <see cref="Html5DateRenderingMode.Rfc3339"/> to have templated helpers such as
+        /// <see cref="Editor"/> and <see cref="IHtmlHelper{TModel}.EditorFor"/> render date and time values as RFC
+        /// 3339 compliant strings. By default these helpers render dates and times using the current culture.
         /// </summary>
         Html5DateRenderingMode Html5DateRenderingMode { get; set; }
 
@@ -22,6 +23,11 @@ namespace Microsoft.AspNet.Mvc.Rendering
         /// Gets or sets the character that replaces periods in the ID attribute of an element.
         /// </summary>
         string IdAttributeDotReplacement { get; set; }
+
+        /// <summary>
+        /// Gets the metadata provider. Intended for use in <see cref="IHtmlHelper"/> extension methods.
+        /// </summary>
+        IModelMetadataProvider MetadataProvider { get; }
 
         /// <summary>
         /// Gets the view bag.
@@ -39,26 +45,25 @@ namespace Microsoft.AspNet.Mvc.Rendering
         ViewDataDictionary ViewData { get; }
 
         /// <summary>
-        /// Returns an anchor element (a element) that contains a URL path to the specified action.
+        /// Returns an anchor (&lt;a&gt;) element that contains a URL path to the specified action.
         /// </summary>
-        /// <param name="linkText">The inner text of the anchor element.</param>
+        /// <param name="linkText">The inner text of the anchor element. Must not be <c>null</c>.</param>
         /// <param name="actionName">The name of the action.</param>
         /// <param name="controllerName">The name of the controller.</param>
         /// <param name="protocol">The protocol for the URL, such as &quot;http&quot; or &quot;https&quot;.</param>
         /// <param name="hostname">The host name for the URL.</param>
         /// <param name="fragment">The URL fragment name (the anchor name).</param>
         /// <param name="routeValues">
-        /// An object that contains the parameters for a route. The parameters are retrieved through reflection by
-        /// examining the properties of the object. This object is typically created using object initializer syntax.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the route parameters.
+        /// An <see cref="object"/> that contains the parameters for a route. The parameters are retrieved through
+        /// reflection by examining the properties of the <see cref="object"/>. This <see cref="object"/> is typically
+        /// created using <see cref="object"/> initializer syntax. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the route parameters.
         /// </param>
         /// <param name="htmlAttributes">
-        /// An object that contains the HTML attributes to set for the element. Alternatively, an
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
         /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <returns>
-        /// An anchor element (a element).
-        /// </returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the anchor element.</returns>
         HtmlString ActionLink(
             [NotNull] string linkText,
             string actionName,
@@ -70,28 +75,35 @@ namespace Microsoft.AspNet.Mvc.Rendering
             object htmlAttributes);
 
         /// <summary>
-        /// Generates a hidden form field (anti-forgery token) that is validated when the form is submitted.
+        /// Returns a &lt;hidden&gt; element (anti-forgery token) that will be validated when the containing
+        /// &lt;form&gt; is submitted.
         /// </summary>
-        /// <returns>
-        /// The generated form field (anti-forgery token).
-        /// </returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;hidden&gt; element.</returns>
         HtmlString AntiForgeryToken();
 
         /// <summary>
-        /// Writes an opening <form> tag to the response. When the user submits the form,
-        /// the request will be processed by an action method.
+        /// Renders a &lt;form&gt; start tag to the response. When the user submits the form, the action with name
+        /// <paramref name="actionName"/> will process the request.
         /// </summary>
         /// <param name="actionName">The name of the action method.</param>
         /// <param name="controllerName">The name of the controller.</param>
-        /// <param name="routeValues">An object that contains the parameters for a route. The parameters are retrieved
-        /// through reflection by examining the properties of the object. This object is typically created using object
-        /// initializer syntax. Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the
-        /// route parameters.</param>
-        /// <param name="method">The HTTP method for processing the form, either GET or POST.</param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the element.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// <param name="routeValues">
+        /// An <see cref="object"/> that contains the parameters for a route. The parameters are retrieved through
+        /// reflection by examining the properties of the <see cref="object"/>. This <see cref="object"/> is typically
+        /// created using <see cref="object"/> initializer syntax. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the route parameters.
         /// </param>
-        /// <returns>An <see cref="MvcForm"/> instance which emits the closing {form} tag when disposed.</returns>
+        /// <param name="method">The HTTP method for processing the form, either GET or POST.</param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// </param>
+        /// <returns>
+        /// An <see cref="MvcForm"/> instance which renders the &lt;/form&gt; end tag when disposed.
+        /// </returns>
+        /// <remarks>
+        /// In this context, "renders" means the method writes its output using <see cref="ViewContext.Writer"/>.
+        /// </remarks>
         MvcForm BeginForm(
             string actionName,
             string controllerName,
@@ -100,39 +112,106 @@ namespace Microsoft.AspNet.Mvc.Rendering
             object htmlAttributes);
 
         /// <summary>
-        /// Render an input element of type "checkbox" with value "true" and an input element of type "hidden" with
-        /// value "false".
+        /// Renders a &lt;form&gt; start tag to the response. The route with name <paramref name="routeName"/>
+        /// generates the &lt;form&gt;'s <c>action</c> attribute value.
         /// </summary>
-        /// <param name="name">
-        /// Rendered element's name. Also use this name to find value in submitted data or view data. Use view data
-        /// only if value is not in submitted data and <paramref name="value"/> is <c>null</c>.
+        /// <param name="routeName">The name of the route.</param>
+        /// <param name="routeValues">
+        /// An <see cref="object"/> that contains the parameters for a route. The parameters are retrieved through
+        /// reflection by examining the properties of the <see cref="object"/>. This <see cref="object"/> is typically
+        /// created using <see cref="object"/> initializer syntax. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the route parameters.
         /// </param>
-        /// <param name="isChecked">
-        /// If <c>true</c>, checkbox is initially checked. Ignore if named value is found in submitted data. Finally
-        /// fall back to an existing "checked" value in <paramref name="htmlAttributes"/>.
+        /// <param name="method">The HTTP method for processing the form, either GET or POST.</param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the element.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// <returns>
+        /// An <see cref="MvcForm"/> instance which renders the &lt;/form&gt; end tag when disposed.
+        /// </returns>
+        /// <remarks>
+        /// In this context, "renders" means the method writes its output using <see cref="ViewContext.Writer"/>.
+        /// </remarks>
+        MvcForm BeginRouteForm(
+            string routeName,
+            object routeValues,
+            FormMethod method,
+            object htmlAttributes);
+
+        /// <summary>
+        /// Returns an &lt;input&gt; element of type "checkbox" with value "true" and an &lt;input&gt; element of type
+        /// "hidden" with value "false".
+        /// </summary>
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="isChecked">If <c>true</c>, checkbox is initially checked.</param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the checkbox element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <returns>New <see cref="HtmlString"/> containing the rendered HTML.</returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;input&gt; elements.</returns>
+        /// <remarks>
+        /// <para>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set checkbox
+        /// element's "name" attribute. Sanitizes <paramref name="name"/> to set checkbox element's "id" attribute.
+        /// </para>
+        /// <para>Determines checkbox element's "checked" attribute based on the following precedence:</para>
+        /// <list type="number">
+        /// <item>
+        /// <see cref="ModelStateDictionary"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="bool"/>.
+        /// </item>
+        /// <item><paramref name="isChecked"/> if non-<c>null</c>.</item>
+        /// <item>
+        /// <see cref="ViewData"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="bool"/>.
+        /// </item>
+        /// <item>
+        /// Linq expression based on <paramref name="name"/> (converted to a fully-qualified name) run against current
+        /// model if result is non-<c>null</c> and can be converted to a <see cref="bool"/>. For example
+        /// <c>string.Empty</c> identifies the current model and <c>"prop"</c> identifies the current model's "prop"
+        /// property.
+        /// </item>
+        /// <item>Existing "checked" entry in <paramref name="htmlAttributes"/> if any.</item>
+        /// <item>Otherwise, does not include a "checked" attribute.</item>
+        /// </list>
+        /// <para>
+        /// In all but the <paramref name="htmlAttributes"/> and default cases, includes a "checked" attribute with
+        /// value "checked" if the <see cref="bool"/> values is <c>true</c>; does not include the attribute otherwise.
+        /// </para>
+        /// </remarks>
         HtmlString CheckBox(string name, bool? isChecked, object htmlAttributes);
 
         /// <summary>
-        /// Returns HTML markup for each property in the object that is represented by the expression, using the
-        /// specified template, HTML field ID, and additional view data.
+        /// Returns HTML markup for the <paramref name="expression"/>, using a display template, specified HTML field
+        /// name, and additional view data. The template is found using the <paramref name="templateName"/> or the
+        /// <paramref name="expression"/>'s <see cref="ModelMetadata"/>.
         /// </summary>
-        /// <param name="expression">An expression that identifies the object that contains the properties to display.
+        /// <param name="expression">
+        /// Expression name, relative to the current model. May identify a single property or an
+        /// <see cref="object"/> that contains the properties to display.
         /// </param>
-        /// <param name="templateName">The name of the template that is used to render the object.</param>
+        /// <param name="templateName">The name of the template used to create the HTML markup.</param>
         /// <param name="htmlFieldName">
-        /// A string that is used to disambiguate the names of HTML input elements that are rendered for properties
-        /// that have the same name.
+        /// A <see cref="string"/> used to disambiguate the names of HTML elements that are created for
+        /// properties that have the same name.
         /// </param>
         /// <param name="additionalViewData">
-        /// An anonymous object or dictionary that can contain additional view data that will be merged into the
-        /// <see cref="ViewDataDictionary{TModel}"/> instance that is created for the template.
+        /// An anonymous <see cref="object"/> or <see cref="IDictionary{string, object}"/> that can contain additional
+        /// view data that will be merged into the <see cref="ViewDataDictionary{TModel}"/> instance created for the
+        /// template.
         /// </param>
-        /// <returns>The HTML markup for each property in the object that is represented by the expression.</returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the created HTML.</returns>
+        /// <remarks>
+        /// <para>
+        /// For example the default <see cref="object"/> display template includes markup for each property in the
+        /// <paramref name="expression"/>'s value.
+        /// </para>
+        /// <para>
+        /// Example <paramref name="expression"/>s include <c>string.Empty</c> which identifies the current model and
+        /// <c>"prop"</c> which identifies the current model's "prop" property.
+        /// </para>
+        /// </remarks>
         HtmlString Display(
             string expression,
             string templateName,
@@ -140,52 +219,44 @@ namespace Microsoft.AspNet.Mvc.Rendering
             object additionalViewData);
 
         /// <summary>
-        /// Returns HTML markup for each property in the model, using the specified template, an HTML field ID, and
-        /// additional view data.
+        /// Returns the display name for the specified expression <paramref name="expression"/>.
         /// </summary>
-        /// <param name="templateName">The name of the template that is used to render the object.</param>
-        /// <param name="htmlFieldName">
-        /// A string that is used to disambiguate the names of HTML input elements that are rendered for properties
-        /// that have the same name.
-        /// </param>
-        /// <param name="additionalViewData">
-        /// An anonymous object or dictionary that can contain additional view data that will be merged into the
-        /// <see cref="ViewDataDictionary{TModel}"/> instance that is created for the template.
-        /// </param>
-        /// <returns>The HTML markup for each property in the model.</returns>
-        HtmlString DisplayForModel(string templateName, string htmlFieldName, object additionalViewData);
+        /// <param name="expression">Expression name, relative to the current model.</param>
+        /// <returns>A <see cref="string"/> containing the display name.</returns>
+        string DisplayName(string expression);
 
         /// <summary>
-        /// Gets the display name.
+        /// Returns the simple display text for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="expression">An expression that identifies the object that contains the display name.</param>
+        /// <param name="name">Expression name, relative to the current model.</param>
         /// <returns>
-        /// The display name.
+        /// A <see cref="string"/> containing the simple display text.
+        /// If the expression result is <c>null</c>, returns <see cref="ModelMetadata.NullDisplayText"/>.
         /// </returns>
-        HtmlString DisplayName(string expression);
-
-        /// Returns the HtmlString corresponding to the property in the model specified by the name.
-        /// </summary>
-        /// <param name="name">
-        /// The string which identifies the object for which the HtmlString should be returned.</param>
-        /// <returns>
-        /// New <see cref="HtmlString"/> containing the display text. If the value is null,
-        /// then it returns the ModelMetadata.NullDisplayText.
-        /// </returns>
-        HtmlString DisplayText(string name);
+        string DisplayText(string name);
 
         /// <summary>
-        /// Returns a single-selection HTML {select} element using the specified name of the form field,
-        /// list items, option label, and HTML attributes.
+        /// Returns a single-selection HTML &lt;select&gt; element for the expression <paramref name="name"/>,
+        /// using the specified list items, option label, and HTML attributes.
         /// </summary>
-        /// <param name="name">The name of the form field to return.</param>
-        /// <param name="selectList">A collection of <see href="SelectListItem"/> objects that are used to populate the
-        /// drop-down list.</param>
-        /// <param name="optionLabel">The text for a default empty item. This parameter can be null.</param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the {select} element.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="selectList">
+        /// A collection of <see cref="SelectListItem"/> objects used to populate the &lt;select&gt; element with
+        /// &lt;optgroup&gt; and &lt;option&gt; elements.
         /// </param>
-        /// <returns>An HTML {select} element with an {option} subelement for each item in the list.</returns>
+        /// <param name="optionLabel">
+        /// The text for a default empty item. Does not include such an item if argument is <c>null</c>.
+        /// </param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the &lt;select&gt; element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// </param>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;select&gt; element.</returns>
+        /// <remarks>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set
+        /// &lt;select&gt; element's "name" attribute. Sanitizes <paramref name="name"/> to set element's "id"
+        /// attribute.
+        /// </remarks>
         HtmlString DropDownList(
             string name,
             IEnumerable<SelectListItem> selectList,
@@ -193,207 +264,328 @@ namespace Microsoft.AspNet.Mvc.Rendering
             object htmlAttributes);
 
         /// <summary>
-        /// Returns an HTML input element for each property in the object that is represented by the expression, using
-        /// the specified template, HTML field ID, and additional view data.
+        /// Returns HTML markup for the <paramref name="expression"/>, using an editor template, specified HTML field
+        /// name, and additional view data. The template is found using the <paramref name="templateName"/> or the
+        /// <paramref name="expression"/>'s <see cref="ModelMetadata"/>.
         /// </summary>
-        /// <param name="expression">An expression that identifies the object that contains the properties to edit.
+        /// <param name="expression">
+        /// Expression name, relative to the current model. May identify a single property or an
+        /// <see cref="object"/> that contains the properties to edit.
         /// </param>
-        /// <param name="templateName">The name of the template that is used to render the object.</param>
+        /// <param name="templateName">The name of the template used to create the HTML markup.</param>
         /// <param name="htmlFieldName">
-        /// A string that is used to disambiguate the names of HTML input elements that are rendered for properties
-        /// that have the same name.
+        /// A <see cref="string"/> used to disambiguate the names of HTML elements that are created for
+        /// properties that have the same name.
         /// </param>
         /// <param name="additionalViewData">
-        /// An anonymous object or dictionary that can contain additional view data that will be merged into the
-        /// <see cref="ViewDataDictionary{TModel}"/> instance that is created for the template.
+        /// An anonymous <see cref="object"/> or <see cref="IDictionary{string, object}"/> that can contain additional
+        /// view data that will be merged into the <see cref="ViewDataDictionary{TModel}"/> instance created for the
+        /// template.
         /// </param>
-        /// <returns>The HTML markup for the input elements for each property in the object that is represented by the
-        /// expression.</returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;input&gt; element(s).</returns>
+        /// <remarks>
+        /// <para>
+        /// For example the default <see cref="object"/> editor template includes &lt;label&gt; and &lt;input&gt;
+        /// elements for each property in the <paramref name="expression"/>'s value.
+        /// </para>
+        /// <para>
+        /// Example <paramref name="expression"/>s include <c>string.Empty</c> which identifies the current model and
+        /// <c>"prop"</c> which identifies the current model's "prop" property.
+        /// </para>
+        /// </remarks>
         HtmlString Editor(string expression, string templateName, string htmlFieldName, object additionalViewData);
 
         /// <summary>
-        /// Converts the value of the specified object to an HTML-encoded string.
+        /// Converts the <paramref name="value"/> to an HTML-encoded <see cref="string"/>.
         /// </summary>
-        /// <param name="value">The object to encode.</param>
-        /// <returns>The HTML-encoded string.</returns>
+        /// <param name="value">The <see cref="object"/> to encode.</param>
+        /// <returns>The HTML-encoded <see cref="string"/>.</returns>
         string Encode(object value);
 
         /// <summary>
-        /// Converts the specified string to an HTML-encoded string.
+        /// Converts the specified <see cref="string"/> to an HTML-encoded <see cref="string"/>.
         /// </summary>
-        /// <param name="value">The string to encode.</param>
-        /// <returns>The HTML-encoded string.</returns>
+        /// <param name="value">The <see cref="string"/> to encode.</param>
+        /// <returns>The HTML-encoded <see cref="string"/>.</returns>
         string Encode(string value);
 
         /// <summary>
-        /// Renders the closing </form> tag to the response.
+        /// Renders the &lt;/form&gt; end tag to the response.
         /// </summary>
+        /// <remarks>
+        /// In this context, "renders" means the method writes its output using <see cref="ViewContext.Writer"/>.
+        /// </remarks>
         void EndForm();
 
         /// <summary>
         /// Formats the value.
         /// </summary>
         /// <param name="value">The value.</param>
-        /// <param name="format">The format string.</param>
-        /// <returns>The formatted value.</returns>
+        /// <param name="format">
+        /// The composite format <see cref="string"/> (see http://msdn.microsoft.com/en-us/library/txafckwd.aspx).
+        /// </param>
+        /// <returns>A <see cref="string"/> containing the formatted value.</returns>
+        /// <remarks>
+        /// Converts <paramref name="value"/> to a <see cref="string"/> directly if
+        /// <paramref name="format"/> is <c>null</c> or empty.
+        /// </remarks>
         string FormatValue(object value, string format);
 
         /// <summary>
-        /// Creates an HTML element ID using the specified element name.
-        /// </summary>
-        /// <param name="name">The name of the HTML element.</param>
-        /// <returns>The ID of the HTML element.</returns>
-        string GenerateIdFromName(string name);
-
-        /// <summary>
-        /// Render an input element of type "hidden".
+        /// Returns an HTML element Id for the specified expression <paramref name="name"/>.
         /// </summary>
         /// <param name="name">
-        /// Rendered element's name. Also use this name to find value in submitted data or view data. Use view data
-        /// only if value is not in submitted data and <paramref name="value"/> is <c>null</c>.
+        /// Fully-qualified expression name, ignoring the current model. Must not be <c>null</c>.
         /// </param>
-        /// <param name="value">
-        /// If non-<c>null</c>, value to include in the element. Ignore if named value is found in submitted data.
+        /// <returns>A <see cref="string"/> containing the element Id.</returns>
+        string GenerateIdFromName([NotNull] string name);
+
+        /// <summary>
+        /// Returns information about about client validation rules for the specified <paramref name="metadata"/> or
+        /// <paramref name="name"/>. Intended for use in <see cref="IHtmlHelper"/> extension methods.
+        /// </summary>
+        /// <param name="metadata">Metadata about the <see cref="object"/> of interest.</param>
+        /// <param name="name">
+        /// Expression name, relative to the current model. Used to determine <see cref="ModelMetadata"/> when
+        /// <paramref name="metadata"/> is <c>null</c>; ignored otherwise.
         /// </param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the element.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// <returns>An <see cref="IEnumerable{ModelClientValidationRule}"/> containing the relevant rules.</returns>
+        IEnumerable<ModelClientValidationRule> GetClientValidationRules(ModelMetadata metadata, string name);
+
+        /// <summary>
+        /// Returns an &lt;input&gt; element of type "hidden" for the specified expression <paramref name="name"/>.
+        /// </summary>
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="value">If non-<c>null</c>, value to include in the element.</param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <returns>New <see cref="HtmlString"/> containing the rendered HTML.</returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;input&gt; element.</returns>
+        /// <remarks>
+        /// <para>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set
+        /// &lt;input&gt; element's "name" attribute. Sanitizes <paramref name="name"/> to set element's "id"
+        /// attribute.
+        /// </para>
+        /// <para>Determines &lt;input&gt; element's "value" attribute based on the following precedence:</para>
+        /// <list type="number">
+        /// <item>
+        /// <see cref="ModelStateDictionary"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="string"/>.
+        /// </item>
+        /// <item><paramref name="value"/> if non-<c>null</c>.</item>
+        /// <item>
+        /// <see cref="ViewData"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="string"/>.
+        /// </item>
+        /// <item>
+        /// Linq expression based on <paramref name="name"/> (converted to a fully-qualified name) run against current
+        /// model if result is non-<c>null</c> and can be converted to a <see cref="string"/>. For example
+        /// <c>string.Empty</c> identifies the current model and <c>"prop"</c> identifies the current model's "prop"
+        /// property.
+        /// </item>
+        /// <item>Existing "value" entry in <paramref name="htmlAttributes"/> if any.</item>
+        /// <item>Otherwise, <c>string.Empty</c>.</item>
+        /// </list>
+        /// </remarks>
         HtmlString Hidden(string name, object value, object htmlAttributes);
 
         /// <summary>
-        /// Gets the Id of the given string.
+        /// Returns the HTML element Id for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="name">The string which identifies the object for which the Id should be returned.</param>
-        /// <returns>New <see cref="HtmlString"/> containing the Id.</returns>
-        HtmlString Id(string name);
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <returns>A <see cref="string"/> containing the element Id.</returns>
+        string Id(string name);
 
         /// <summary>
-        /// Returns an HTML label element and the property name of the property that is represented by the specified
-        /// expression.
+        /// Returns a &lt;label&gt; element for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="expression">An expression that identifies the property to display.</param>
-        /// <param name="labelText">The label text.</param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the element.</param>
-        /// <returns>
-        /// An HTML label element and the property name of the property that is represented by the expression.
-        /// </returns>
+        /// <param name="expression">Expression name, relative to the current model.</param>
+        /// <param name="labelText">The inner text of the element.</param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// </param>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;label&gt; element.</returns>
         HtmlString Label(string expression, string labelText, object htmlAttributes);
 
         /// <summary>
-        /// Returns a multi-selection HTML {select} element using the specified name of the form field,
-        /// list items, and HTML attributes.
+        /// Returns a multi-selection &lt;select&gt; element for the expression <paramref name="name"/>, using the
+        /// specified list items and HTML attributes.
         /// </summary>
-        /// <param name="name">The name of the form field to return.</param>
-        /// <param name="selectList">A collection of <see href="SelectListItem"/> objects that are used to populate the
-        /// drop-down list.</param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the element.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="selectList">
+        /// A collection of <see cref="SelectListItem"/> objects used to populate the &lt;select&gt; element with
+        /// &lt;optgroup&gt; and &lt;option&gt; elements.
         /// </param>
-        /// <returns>An HTML {select} element with an {option} subelement for each item in the list.</returns>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the &lt;select&gt; element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// </param>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;select&gt; element.</returns>
+        /// <remarks>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set
+        /// &lt;select&gt; element's "name" attribute. Sanitizes <paramref name="name"/> to set element's "id"
+        /// attribute.
+        /// </remarks>
         HtmlString ListBox(string name, IEnumerable<SelectListItem> selectList, object htmlAttributes);
 
         /// <summary>
-        /// Gets the full HTML field name for the given expression <paramref name="name"/>.
+        /// Returns the full HTML element name for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="name">Name of an expression, relative to the current model.</param>
-        /// <returns>An <see cref="HtmlString"/> that represents HTML markup.</returns>
-        HtmlString Name(string name);
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <returns>A <see cref="string"/> containing the element name.</returns>
+        string Name(string name);
 
         /// <summary>
-        /// Returns a partial view in string format.
+        /// Returns HTML markup for the specified partial view.
         /// </summary>
-        /// <param name="partialViewName">The name of the partial view to render and return.</param>
+        /// <param name="partialViewName">
+        /// The name of the partial view used to create the HTML markup. Must not be <c>null</c>.
+        /// </param>
         /// <param name="model">A model to pass into the partial view.</param>
         /// <param name="viewData">A <see cref="ViewDataDictionary"/> to pass into the partial view.</param>
-        /// <returns>A task that represents when rendering of the partial view into a string has completed.</returns>
+        /// <returns>
+        /// A <see cref="Task"/> that on completion returns a new <see cref="HtmlString"/> containing
+        /// the created HTML.
+        /// </returns>
         Task<HtmlString> PartialAsync([NotNull] string partialViewName, object model, ViewDataDictionary viewData);
 
         /// <summary>
-        /// Render an input element of type "password".
+        /// Returns an &lt;input&gt; element of type "password" for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="name">
-        /// Rendered element's name. Also use this name to find value in view data. Use view data
-        /// only if value is not in submitted data and <paramref name="value"/> is <c>null</c>.
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="value">If non-<c>null</c>, value to include in the element.</param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <param name="value">
-        /// If non-<c>null</c>, value to include in the element.
-        /// </param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the element.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
-        /// </param>
-        /// <returns>New <see cref="HtmlString"/> containing the rendered HTML.</returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;input&gt; element.</returns>
+        /// <remarks>
+        /// <para>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set
+        /// &lt;input&gt; element's "name" attribute. Sanitizes <paramref name="name"/> to set element's "id"
+        /// attribute.
+        /// </para>
+        /// <para>Determines &lt;input&gt; element's "value" attribute based on the following precedence:</para>
+        /// <list type="number">
+        /// <item><paramref name="value"/> if non-<c>null</c>.</item>
+        /// <item>Existing "value" entry in <paramref name="htmlAttributes"/> if any.</item>
+        /// <item>Otherwise, <c>string.Empty</c>.</item>
+        /// </list>
+        /// </remarks>
         HtmlString Password(string name, object value, object htmlAttributes);
 
         /// <summary>
-        /// Render an input element of type "radio".
+        /// Returns an &lt;input&gt; element of type "radio" for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="name">
-        /// Rendered element's name. Also use this name to find value in submitted data or view data. Use view data
-        /// only if value is not in submitted data and <paramref name="value"/> is <c>null</c>.
-        /// </param>
+        /// <param name="name">Expression name, relative to the current model.</param>
         /// <param name="value">
-        /// If non-<c>null</c>, value to include in the element. May be <c>null</c> only if
-        /// <paramref name="isChecked"/> is also <c>null</c>. Also compared to value in submitted data or view data to
-        /// determine <paramref name="isChecked"/> if that parameter is <c>null</c>. Ignore if named value is found in
-        /// submitted data.
+        /// If non-<c>null</c>, value to include in the element. Must not be <c>null</c> if
+        /// <paramref name="isChecked"/> is also <c>null</c> and no "checked" entry exists in
+        /// <paramref name="htmlAttributes"/>.
         /// </param>
         /// <param name="isChecked">
-        /// If <c>true</c>, radio button is initially selected. Ignore if named value is found in submitted data. Fall
-        /// back to comparing <paramref name="value"/> with view data if this parameter is <c>null</c>. Finally
-        /// fall back to an existing "checked" value in <paramref name="htmlAttributes"/>.
+        /// If <c>true</c>, radio button is initially selected. Must not be <c>null</c> if
+        /// <paramref name="value"/> is also <c>null</c> and no "checked" entry exists in
+        /// <paramref name="htmlAttributes"/>.
         /// </param>
-        /// <param name="htmlAttributes">An object that contains the HTML attributes to set for the element.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <returns>New <see cref="HtmlString"/> containing the rendered HTML.</returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;input&gt; element.</returns>
+        /// <remarks>
+        /// <para>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set
+        /// &lt;input&gt; element's "name" attribute. Sanitizes <paramref name="name"/> to set element's "id"
+        /// attribute.
+        /// </para>
+        /// <para>Determines element's "value" attribute based on the following precedence:</para>
+        /// <list type="number">
+        /// <item><paramref name="value"/> if non-<c>null</c>.</item>
+        /// <item>Existing "value" entry in <paramref name="htmlAttributes"/> if any.</item>
+        /// <item>Otherwise, <c>string.Empty</c>.</item>
+        /// </list>
+        /// <para>Determines &lt;input&gt; element's "checked" attribute based on the following precedence:</para>
+        /// <list type="number">
+        /// <item>
+        /// <see cref="ModelStateDictionary"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="string"/>.
+        /// </item>
+        /// <item><paramref name="isChecked"/> if non-<c>null</c>.</item>
+        /// <item>Existing "checked" entry in <paramref name="htmlAttributes"/> if any.</item>
+        /// <item>
+        /// <see cref="ViewData"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="string"/>.
+        /// </item>
+        /// <item>
+        /// Linq expression based on <paramref name="name"/> (converted to a fully-qualified name) run against current
+        /// model if result is non-<c>null</c> and can be converted to a <see cref="string"/>. For example
+        /// <c>string.Empty</c> identifies the current model and <c>"prop"</c> identifies the current model's "prop"
+        /// property.
+        /// </item>
+        /// <item>Otherwise, does not include a "checked" attribute.</item>
+        /// </list>
+        /// <para>
+        /// In all but the <paramref name="htmlAttributes"/> and default cases, includes a "checked" attribute with
+        /// value "checked" if the <see cref="string"/> values is equal to a converted <see cref="string"/> for
+        /// <paramref name="value"/> or <paramref name="isChecked"/> is <c>true</c> (for that case); does not include
+        /// the attribute otherwise.
+        /// </para>
+        /// </remarks>
         HtmlString RadioButton(string name, object value, bool? isChecked, object htmlAttributes);
 
         /// <summary>
-        /// Wraps HTML markup in an <see cref="HtmlString"/>, which will enable HTML markup to be
-        /// rendered to the output without getting HTML encoded.
+        /// Wraps HTML markup in an <see cref="HtmlString"/>, without HTML-encoding the specified
+        /// <paramref name="value"/>.
         /// </summary>
-        /// <param name="value">HTML markup string.</param>
-        /// <returns>An <see cref="HtmlString"/> that represents HTML markup.</returns>
+        /// <param name="value">HTML markup <see cref="string"/>.</param>
+        /// <returns>A new <see cref="HtmlString"/> containing the wrapped <see cref="string"/>.</returns>
         HtmlString Raw(string value);
 
         /// <summary>
-        /// Wraps HTML markup from the string representation of an object in an <see cref="HtmlString"/>,
-        /// which will enable HTML markup to be rendered to the output without getting HTML encoded.
+        /// Wraps HTML markup from the string representation of an <see cref="object"/> in an
+        /// <see cref="HtmlString"/>, without HTML-encoding the string representation.
         /// </summary>
-        /// <param name="value">object with string representation as HTML markup.</param>
-        /// <returns>An <see cref="HtmlString"/> that represents HTML markup.</returns>
+        /// <param name="value">The <see cref="object"/> to wrap.</param>
+        /// <returns>A new <see cref="HtmlString"/> containing the wrapped string representation.</returns>
         HtmlString Raw(object value);
 
         /// <summary>
-        /// Renders a partial view.
+        /// Renders HTML markup for the specified partial view.
         /// </summary>
-        /// <param name="partialViewName">The name of the partial view to render.</param>
+        /// <param name="partialViewName">
+        /// The name of the partial view used to create the HTML markup. Must not be <c>null</c>.
+        /// </param>
         /// <param name="model">A model to pass into the partial view.</param>
         /// <param name="viewData">A <see cref="ViewDataDictionary"/> to pass into the partial view.</param>
-        /// <returns>A task that represents when rendering has completed.</returns>
+        /// <returns>A <see cref="Task"/> that renders the created HTML when it executes.</returns>
+        /// <remarks>
+        /// In this context, "renders" means the method writes its output using <see cref="ViewContext.Writer"/>.
+        /// </remarks>
         Task RenderPartialAsync([NotNull] string partialViewName, object model, ViewDataDictionary viewData);
 
         /// <summary>
-        /// Returns an anchor element (a element) that contains a URL path to the specified route.
+        /// Returns an anchor (&lt;a&gt;) element that contains a URL path to the specified route.
         /// </summary>
-        /// <param name="linkText">The inner text of the anchor element.</param>
+        /// <param name="linkText">The inner text of the anchor element. Must not be <c>null</c>.</param>
         /// <param name="routeName">The name of the route.</param>
         /// <param name="protocol">The protocol for the URL, such as &quot;http&quot; or &quot;https&quot;.</param>
         /// <param name="hostName">The host name for the URL.</param>
         /// <param name="fragment">The URL fragment name (the anchor name).</param>
         /// <param name="routeValues">
-        /// An object that contains the parameters for a route. The parameters are retrieved through reflection by
-        /// examining the properties of the object. This object is typically created using object initializer syntax.
-        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the route parameters.
+        /// An <see cref="object"/> that contains the parameters for a route. The parameters are retrieved through
+        /// reflection by examining the properties of the <see cref="object"/>. This <see cref="object"/> is typically
+        /// created using <see cref="object"/> initializer syntax. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the route parameters.
         /// </param>
         /// <param name="htmlAttributes">
-        /// An object that contains the HTML attributes to set for the element. Alternatively, an
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
         /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <returns>
-        /// An anchor element (a element).
-        /// </returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the anchor element.</returns>
         HtmlString RouteLink(
             [NotNull] string linkText,
             string routeName,
@@ -404,78 +596,156 @@ namespace Microsoft.AspNet.Mvc.Rendering
             object htmlAttributes);
 
         /// <summary>
-        /// Render a textarea.
+        /// Returns a &lt;textarea&gt; element for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="name">
-        /// Rendered element's name. Also use this name to find value in submitted data or view data. Use view data
-        /// only if value is not in submitted data and <paramref name="value"/> is <c>null</c>.
-        /// </param>
-        /// <param name="value">
-        /// If non-<c>null</c>, value to include in the element. Ignore if named value is found in submitted data.
-        /// </param>
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="value">If non-<c>null</c>, value to include in the element.</param>
         /// <param name="rows">Number of rows in the textarea.</param>
         /// <param name="columns">Number of columns in the textarea.</param>
         /// <param name="htmlAttributes">
-        /// <see cref="IDictionary{string, object}"/> containing additional HTML attributes.
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <returns>New <see cref="HtmlString"/> containing the rendered HTML.</returns>
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;textarea&gt; element.</returns>
+        /// <remarks>
+        /// <para>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set
+        /// &lt;textarea&gt; element's "name" attribute. Sanitizes <paramref name="name"/> to set element's "id"
+        /// attribute.
+        /// </para>
+        /// <para>Determines &lt;textarea&gt; element's content based on the following precedence:</para>
+        /// <list type="number">
+        /// <item>
+        /// <see cref="ModelStateDictionary"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="string"/>.
+        /// </item>
+        /// <item><paramref name="value"/> if non-<c>null</c>.</item>
+        /// <item>
+        /// <see cref="ViewData"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="string"/>.
+        /// </item>
+        /// <item>
+        /// Linq expression based on <paramref name="name"/> (converted to a fully-qualified name) run against current
+        /// model if result is non-<c>null</c> and can be converted to a <see cref="string"/>. For example
+        /// <c>string.Empty</c> identifies the current model and <c>"prop"</c> identifies the current model's "prop"
+        /// property.
+        /// </item>
+        /// <item>Otherwise, <c>string.Empty</c>.</item>
+        /// </list>
+        /// </remarks>
         HtmlString TextArea(string name, string value, int rows, int columns, object htmlAttributes);
 
         /// <summary>
-        /// Render an input element of type "text".
+        /// Returns an &lt;input&gt; element of type "text" for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="name">
-        /// Rendered element's name. Also use this name to find value in submitted data or view data. Use view data
-        /// only if value is not in submitted data and <paramref name="value"/> is <c>null</c>.
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="value">If non-<c>null</c>, value to include in the element.</param>
+        /// <param name="format">
+        /// The composite format <see cref="string"/> (see http://msdn.microsoft.com/en-us/library/txafckwd.aspx).
         /// </param>
-        /// <param name="value">
-        /// If non-<c>null</c>, value to include in the element. Ignore if named value is found in submitted data.
-        /// </param>
-        /// <param name="format"></param>
         /// <param name="htmlAttributes">
-        /// <see cref="IDictionary{string, object}"/> containing additional HTML attributes.
+        /// An <see cref="object"/> that contains the HTML attributes for the element. Alternatively, an
+        /// <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <returns>New <see cref="HtmlString"/> containing the rendered HTML.</returns>
-        HtmlString TextBox(string name, object value, string format, IDictionary<string, object> htmlAttributes);
+        /// <returns>A new <see cref="HtmlString"/> containing the &lt;input&gt; element.</returns>
+        /// <remarks>
+        /// <para>
+        /// Combines <see cref="TemplateInfo.HtmlFieldPrefix"/> and <paramref name="name"/> to set
+        /// &lt;input&gt; element's "name" attribute. Sanitizes <paramref name="name"/> to set element's "id"
+        /// attribute.
+        /// </para>
+        /// <para>Determines &lt;input&gt; element's "value" attribute based on the following precedence:</para>
+        /// <list type="number">
+        /// <item>
+        /// <see cref="ModelStateDictionary"/> entry for <paramref name="name"/> (converted to a fully-qualified name)
+        /// if entry exists and can be converted to a <see cref="string"/>.
+        /// </item>
+        /// <item>
+        /// <paramref name="value"/> if non-<c>null</c>. Formats <paramref name="value"/> using
+        /// <paramref name="format"/> or converts <paramref name="value"/> to a <see cref="string"/> directly if
+        /// <paramref name="format"/> is <c>null</c> or empty.
+        /// </item>
+        /// <item>
+        /// <see cref="ViewData"/> entry for <paramref name="name"/> (converted to a fully-qualified name) if entry
+        /// exists and can be converted to a <see cref="string"/>. Formats entry using <paramref name="format"/> or
+        /// converts entry to a <see cref="string"/> directly if <paramref name="format"/> is <c>null</c> or empty.
+        /// </item>
+        /// <item>
+        /// Linq expression based on <paramref name="name"/> (converted to a fully-qualified name) run against current
+        /// model if result is non-<c>null</c> and can be converted to a <see cref="string"/>. For example
+        /// <c>string.Empty</c> identifies the current model and <c>"prop"</c> identifies the current model's "prop"
+        /// property. Formats result using <paramref name="format"/> or converts result to a <see cref="string"/>
+        /// directly if <paramref name="format"/> is <c>null</c> or empty.
+        /// </item>
+        /// <item>Existing "value" entry in <paramref name="htmlAttributes"/> if any.</item>
+        /// <item>Otherwise, <c>string.Empty</c>.</item>
+        /// </list>
+        /// </remarks>
+        HtmlString TextBox(string name, object value, string format, object htmlAttributes);
 
         /// <summary>
-        /// Returns the validation message if an error exists in the <see cref="ModelStateDictionary"/> object.
+        /// Returns the validation message if an error exists in the <see cref="ModelStateDictionary"/> object
+        /// for the specified expression <paramref name="modelName"/>.
         /// </summary>
-        /// <param name="modelName">The name of the property that is being validated.</param>
-        /// <param name="message">The message to be displayed. This will always be visible but client-side
-        /// validation may update the associated CSS class.</param>
-        /// <param name="htmlAttributes"> An object that contains the HTML attributes to set for the element.
+        /// <param name="modelName">Expression name, relative to the current model.</param>
+        /// <param name="message">
+        /// The message to be displayed. If <c>null</c> or empty, method extracts an error string from the
+        /// <see cref="ModelStateDictionary"/> object. Message will always be visible but client-side validation may
+        /// update the associated CSS class.
+        /// </param>
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the <paramref name="tag"/> element.
         /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
         /// </param>
-        /// <param name="tag">The tag to wrap the <paramref name="message"/> in the generated HTML.
-        /// Its default value is <see cref="ViewContext.ValidationMessageElement" />.</param>
-        /// <returns>An <see cref="HtmlString"/> that contains the validation message</returns>
+        /// <param name="tag">
+        /// The tag to wrap the <paramref name="message"/> in the generated HTML. Its default value is
+        /// <see cref="ViewContext.ValidationMessageElement"/>.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="HtmlString"/> containing a <paramref name="tag"/> element. <c>null</c> if the
+        /// expression <paramref name="modelName"/> is valid and client-side validation is disabled.
+        /// </returns>
         HtmlString ValidationMessage(string modelName, string message, object htmlAttributes, string tag);
 
         /// <summary>
-        /// Returns an unordered list (ul element) of validation messages that are in the
+        /// Returns an unordered list (&lt;ul&gt; element) of validation messages that are in the
         /// <see cref="ModelStateDictionary"/> object.
         /// </summary>
-        /// <param name="excludePropertyErrors">true to have the summary display model-level errors only, or false to
-        /// have the summary display all errors.</param>
+        /// <param name="excludePropertyErrors">
+        /// If <c>true</c>, display model-level errors only; otherwise display all errors.
+        /// </param>
         /// <param name="message">The message to display with the validation summary.</param>
-        /// <param name="htmlAttributes">A dictionary that contains the HTML attributes for the element.</param>
-        /// <param name="tag">The tag to wrap the <paramref name="message"/> in the generated HTML.
-        /// Its default value is <see cref="ViewContext.ValidationMessageElement" />.</param>
-        /// <returns>An <see cref="HtmlString"/> that contains an unordered list (ul element) of validation messages.
+        /// <param name="htmlAttributes">
+        /// An <see cref="object"/> that contains the HTML attributes for the topmost (&lt;div&gt;) element.
+        /// Alternatively, an <see cref="IDictionary{string, object}"/> instance containing the HTML attributes.
+        /// </param>
+        /// <param name="tag">
+        /// The tag to wrap the <paramref name="message"/> in the generated HTML. Its default value is
+        /// <see cref="ViewContext.ValidationSummaryMessageElement" />.
+        /// </param>
+        /// <returns>
+        /// New <see cref="HtmlString"/> containing a &lt;div&gt; element wrapping the <paramref name="tag"/> element
+        /// and the &lt;ul&gt; element. <see cref="HtmlString.Empty"/> if the current model is valid and client-side
+        /// validation is disabled).
         /// </returns>
         HtmlString ValidationSummary(
             bool excludePropertyErrors,
             string message,
-            IDictionary<string, object> htmlAttributes,
+            object htmlAttributes,
             string tag);
 
         /// <summary>
-        /// Returns the model value for the given expression <paramref name="name"/>.
+        /// Returns the formatted value for the specified expression <paramref name="name"/>.
         /// </summary>
-        /// <param name="name">Name of an expression, relative to the current model.</param>
-        /// <param name="format">The optional format string to apply to the value.</param>
-        /// <returns>An <see cref="HtmlString"/> that represents HTML markup.</returns>
-        HtmlString Value([NotNull] string name, string format);
+        /// <param name="name">Expression name, relative to the current model.</param>
+        /// <param name="format">
+        /// The composite format <see cref="string"/> (see http://msdn.microsoft.com/en-us/library/txafckwd.aspx).
+        /// </param>
+        /// <returns>A <see cref="string"/> containing the formatted value.</returns>
+        /// <remarks>
+        /// Converts the expression result to a <see cref="string"/> directly if
+        /// <paramref name="format"/> is <c>null</c> or empty.
+        /// </remarks>
+        string Value(string name, string format);
     }
 }

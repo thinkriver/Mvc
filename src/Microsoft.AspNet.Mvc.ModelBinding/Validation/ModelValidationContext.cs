@@ -9,25 +9,41 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
     {
         public ModelValidationContext([NotNull] ModelBindingContext bindingContext,
                                       [NotNull] ModelMetadata metadata)
-            : this(bindingContext.MetadataProvider, 
-                   bindingContext.ValidatorProviders, 
-                   bindingContext.ModelState, 
-                   metadata, 
+            : this(bindingContext.OperationBindingContext.MetadataProvider,
+                   bindingContext.OperationBindingContext.ValidatorProvider,
+                   bindingContext.ModelState,
+                   metadata,
                    bindingContext.ModelMetadata)
         {
         }
 
-        public ModelValidationContext([NotNull] IModelMetadataProvider metadataProvider, 
-                                      [NotNull] IEnumerable<IModelValidatorProvider> validatorProviders, 
-                                      [NotNull] ModelStateDictionary modelState, 
-                                      [NotNull] ModelMetadata metadata, 
+        public ModelValidationContext([NotNull] IModelMetadataProvider metadataProvider,
+                                      [NotNull] IModelValidatorProvider validatorProvider,
+                                      [NotNull] ModelStateDictionary modelState,
+                                      [NotNull] ModelMetadata metadata,
                                       ModelMetadata containerMetadata)
+            : this(metadataProvider,
+                  validatorProvider,
+                  modelState,
+                  metadata,
+                  containerMetadata,
+                  excludeFromValidationFilters: null)
+        {
+        }
+
+        public ModelValidationContext([NotNull] IModelMetadataProvider metadataProvider,
+                                      [NotNull] IModelValidatorProvider validatorProvider,
+                                      [NotNull] ModelStateDictionary modelState,
+                                      [NotNull] ModelMetadata metadata,
+                                      ModelMetadata containerMetadata,
+                                      IReadOnlyList<IExcludeTypeValidationFilter> excludeFromValidationFilters)
         {
             ModelMetadata = metadata;
             ModelState = modelState;
             MetadataProvider = metadataProvider;
-            ValidatorProviders = validatorProviders;
+            ValidatorProvider = validatorProvider;
             ContainerMetadata = containerMetadata;
+            ExcludeFromValidationFilters = excludeFromValidationFilters;
         }
 
         public ModelValidationContext([NotNull] ModelValidationContext parentContext,
@@ -37,17 +53,20 @@ namespace Microsoft.AspNet.Mvc.ModelBinding
             ContainerMetadata = parentContext.ModelMetadata;
             ModelState = parentContext.ModelState;
             MetadataProvider = parentContext.MetadataProvider;
-            ValidatorProviders = parentContext.ValidatorProviders;
+            ValidatorProvider = parentContext.ValidatorProvider;
+            ExcludeFromValidationFilters = parentContext.ExcludeFromValidationFilters;
         }
 
-        public ModelMetadata ModelMetadata { get; private set; }
+        public ModelMetadata ModelMetadata { get; }
 
-        public ModelMetadata ContainerMetadata { get; private set; }
+        public ModelMetadata ContainerMetadata { get; }
 
-        public ModelStateDictionary ModelState { get; private set; }
+        public ModelStateDictionary ModelState { get; }
 
-        public IModelMetadataProvider MetadataProvider { get; private set; }
+        public IModelMetadataProvider MetadataProvider { get; }
 
-        public IEnumerable<IModelValidatorProvider> ValidatorProviders { get; private set; }
+        public IModelValidatorProvider ValidatorProvider { get; }
+
+        public IReadOnlyList<IExcludeTypeValidationFilter> ExcludeFromValidationFilters { get; }
     }
 }

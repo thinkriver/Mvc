@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -26,36 +26,36 @@
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-                
-    There are any number of "resheader" rows that contain simple 
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -118,10 +118,22 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="ArgumentCannotBeNullOrEmpty" xml:space="preserve">
-    <value>The value cannot be null or empty.</value>
+    <value>Value cannot be null or empty.</value>
+  </data>
+  <data name="CompilationFailed" xml:space="preserve">
+    <value>Compilation for '{0}' failed:</value>
+  </data>
+  <data name="FlushPointCannotBeInvoked" xml:space="preserve">
+    <value>'{0}' cannot be invoked when a Layout page is set to be executed.</value>
+  </data>
+  <data name="Instrumentation_WriterMustBeBufferedTextWriter" xml:space="preserve">
+    <value>The {0} returned by '{1}' must be an instance of '{2}'.</value>
   </data>
   <data name="LayoutCannotBeLocated" xml:space="preserve">
-    <value>The layout view '{0}' could not be located.</value>
+    <value>The layout view '{0}' could not be located. The following locations were searched:{1}</value>
+  </data>
+  <data name="LayoutCannotBeRendered" xml:space="preserve">
+    <value>A layout page cannot be rendered after '{0}' has been invoked.</value>
   </data>
   <data name="MvcRazorCodeParser_CannotHaveModelAndInheritsKeyword" xml:space="preserve">
     <value>The 'inherits' keyword is not allowed when a '{0}' keyword is used.</value>
@@ -132,7 +144,16 @@
   <data name="MvcRazorCodeParser_OnlyOneModelStatementIsAllowed" xml:space="preserve">
     <value>Only one '{0}' statement is allowed in a file.</value>
   </data>
-  <data name="RenderBodyCannotBeCalled" xml:space="preserve">
+  <data name="RazorPage_ThereIsNoActiveWritingScopeToEnd" xml:space="preserve">
+    <value>There is no active writing scope to end.</value>
+  </data>
+  <data name="RazorPage_YouCannotFlushWhileInAWritingScope" xml:space="preserve">
+    <value>You cannot flush while inside a writing scope.</value>
+  </data>
+  <data name="RazorPage_NullModelMetadata" xml:space="preserve">
+    <value>The {0} was unable to provide metadata for expression '{1}'.</value>
+  </data>
+  <data name="RazorPage_MethodCannotBeCalled" xml:space="preserve">
     <value>{0} can only be called from a layout page.</value>
   </data>
   <data name="RenderBodyNotCalled" xml:space="preserve">
@@ -142,7 +163,7 @@
     <value>Section '{0}' is already defined.</value>
   </data>
   <data name="SectionAlreadyRendered" xml:space="preserve">
-    <value>{0} has already been called for the section named '{1}'.</value>
+    <value>The section named '{0}' has already been rendered.</value>
   </data>
   <data name="SectionNotDefined" xml:space="preserve">
     <value>Section '{0}' is not defined.</value>
@@ -156,10 +177,10 @@
   <data name="ViewContextMustBeSet" xml:space="preserve">
     <value>'{0} must be set to access '{1}'.</value>
   </data>
-  <data name="ViewMustEndInExtension" xml:space="preserve">
-    <value>View '{0}' must have extension '{1}' when the view represents a full path.</value>
+  <data name="ViewLocationCache_KeyMustBeString" xml:space="preserve">
+    <value>'{0}' must be a {1} that is generated as result of the call to '{2}'.</value>
   </data>
-  <data name="View_MethodCannotBeCalled" xml:space="preserve">
-    <value>The method '{0}' cannot be invoked by this view.</value>
+  <data name="ViewMustBeContextualized" xml:space="preserve">
+    <value>The '{0}' method must be called before '{1}' can be invoked.</value>
   </data>
 </root>

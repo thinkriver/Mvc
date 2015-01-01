@@ -3,10 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.AspNet.Mvc.ApplicationModels;
 using Microsoft.AspNet.Mvc.Core;
-using Microsoft.AspNet.Mvc.ModelBinding;
-using Microsoft.AspNet.Mvc.ReflectedModelBuilder;
-using Microsoft.AspNet.Mvc.Rendering;
+using Microsoft.AspNet.Mvc.OptionDescriptors;
 
 namespace Microsoft.AspNet.Mvc
 {
@@ -16,14 +15,17 @@ namespace Microsoft.AspNet.Mvc
     public class MvcOptions
     {
         private AntiForgeryOptions _antiForgeryOptions = new AntiForgeryOptions();
-        private RazorViewEngineOptions _viewEngineOptions = new RazorViewEngineOptions();
+        private int _maxModelStateErrors = 200;
 
         public MvcOptions()
         {
-            ApplicationModelConventions = new List<IReflectedApplicationModelConvention>();
+            ApplicationModelConventions = new List<IApplicationModelConvention>();
             ModelBinders = new List<ModelBinderDescriptor>();
             ViewEngines = new List<ViewEngineDescriptor>();
-            ValueProviderFactories = new List<IValueProviderFactory>();
+            ValueProviderFactories = new List<ValueProviderFactoryDescriptor>();
+            OutputFormatters = new List<OutputFormatterDescriptor>();
+            InputFormatters = new List<InputFormatterDescriptor>();
+            Filters = new List<IFilter>();
         }
 
         /// <summary>
@@ -50,43 +52,78 @@ namespace Microsoft.AspNet.Mvc
         }
 
         /// <summary>
-        /// Provides programmatic configuration for the default <see cref="IViewEngine" />.
+        /// Gets a list of <see cref="IFilter"/> which are used to construct filters that
+        /// apply to all actions.
         /// </summary>
-        public RazorViewEngineOptions ViewEngineOptions
-        {
-            get
-            {
-                return _viewEngineOptions;
-            }
+        public ICollection<IFilter> Filters { get; private set; }
 
+        /// <summary>
+        /// Gets a list of the <see cref="OutputFormatterDescriptor" /> which are used to construct
+        /// a list of <see cref="IOutputFormatter"/> by <see cref="IOutputFormattersProvider"/>.
+        /// </summary>
+        public List<OutputFormatterDescriptor> OutputFormatters { get; private set; }
+
+        /// <summary>
+        /// Gets a list of the <see cref="InputFormatterDescriptor" /> which are used to construct
+        /// a list of <see cref="IInputFormatter"/> by <see cref="IInputFormattersProvider"/>.
+        /// </summary>
+        public List<InputFormatterDescriptor> InputFormatters { get; private set; }
+
+        /// <summary>
+        /// Gets a list of <see cref="ExcludeValidationDescriptor"/> which are used to construct a list
+        /// of exclude filters by <see cref="IValidationExcludeFiltersProvider"/>,
+        /// </summary>
+        public List<ExcludeValidationDescriptor> ValidationExcludeFilters { get; }
+            = new List<ExcludeValidationDescriptor>();
+
+        /// <summary>
+        /// Gets or sets the maximum number of validation errors that are allowed by this application before further
+        /// errors are ignored.
+        /// </summary>
+        public int MaxModelValidationErrors
+        {
+            get { return _maxModelStateErrors; }
             set
             {
-                if (value == null)
+                if (value < 0)
                 {
-                    throw new ArgumentNullException("value",
-                                                    Resources.FormatPropertyOfTypeCannotBeNull("ViewEngineOptions",
-                                                                                               typeof(MvcOptions)));
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
-                _viewEngineOptions = value;
+                _maxModelStateErrors = value;
             }
         }
 
         /// <summary>
-        /// Get a list of the <see cref="ModelBinderDescriptor" /> used by the <see cref="CompositeModelBinder" />.
+        /// Get a list of the <see cref="ModelBinderDescriptor" /> used by the
+        /// Gets a list of the <see cref="ModelBinderDescriptor" /> used by the
+        /// <see cref="ModelBinding.CompositeModelBinder" />.
         /// </summary>
         public List<ModelBinderDescriptor> ModelBinders { get; private set; }
 
         /// <summary>
-        /// Gets a list of descriptors that represent <see cref="IViewEngine"/> used by this application.
+        /// Gets a list of the <see cref="ModelValidatorProviderDescriptor" />s used by
+        /// <see cref="ModelBinding.CompositeModelValidatorProvider"/>.
+        /// </summary>
+        public List<ModelValidatorProviderDescriptor> ModelValidatorProviders { get; }
+            = new List<ModelValidatorProviderDescriptor>();
+
+        /// <summary>
+        /// Gets a list of descriptors that represent <see cref="Rendering.IViewEngine"/> used
+        /// by this application.
         /// </summary>
         public List<ViewEngineDescriptor> ViewEngines { get; private set; }
 
         /// <summary>
-        /// Gets a list of <see cref="IValueProviderFactory"/> used by this application.
+        /// Gets a list of descriptors that represent
+        /// <see cref="ModelBinding.IValueProviderFactory"/> used by this application.
         /// </summary>
-        public List<IValueProviderFactory> ValueProviderFactories { get; private set; }
+        public List<ValueProviderFactoryDescriptor> ValueProviderFactories { get; private set; }
 
-        public List<IReflectedApplicationModelConvention> ApplicationModelConventions { get; private set; }
+        /// <summary>
+        /// Gets a list of <see cref="IApplicationModelConvention"/> instances that will be applied to
+        /// the <see cref="ApplicationModel"/> when discovering actions.
+        /// </summary>
+        public List<IApplicationModelConvention> ApplicationModelConventions { get; private set; }
     }
 }

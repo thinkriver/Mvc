@@ -14,16 +14,22 @@ namespace Microsoft.AspNet.Mvc
     public class DefaultViewComponentInvoker : IViewComponentInvoker
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly ITypeActivator _activator;
         private readonly TypeInfo _componentType;
+        private readonly IViewComponentActivator _viewComponentActivator;
         private readonly object[] _args;
 
         public DefaultViewComponentInvoker(
             [NotNull] IServiceProvider serviceProvider,
+            [NotNull] ITypeActivator activator,
+            [NotNull] IViewComponentActivator viewComponentActivator,
             [NotNull] TypeInfo componentType,
             object[] args)
         {
             _serviceProvider = serviceProvider;
+            _activator = activator;
             _componentType = componentType;
+            _viewComponentActivator = viewComponentActivator;
             _args = args ?? new object[0];
         }
 
@@ -71,18 +77,8 @@ namespace Microsoft.AspNet.Mvc
 
         private object CreateComponent([NotNull] ViewContext context)
         {
-            var activator = _serviceProvider.GetService<ITypeActivator>();
-            var component = activator.CreateInstance(_serviceProvider, _componentType.AsType());
-
-            Injector.InjectProperty(component, "ViewContext", context);
-
-            // We're flowing the viewbag across, but the concept of model doesn't really apply here
-            var viewData = new ViewDataDictionary(context.ViewData);
-            viewData.Model = null;
-            Injector.InjectProperty(component, "ViewData", viewData);
-
-            Injector.CallInitializer(component, _serviceProvider);
-
+            var component = _activator.CreateInstance(_serviceProvider, _componentType.AsType());
+            _viewComponentActivator.Activate(component, context);
             return component;
         }
 
@@ -92,7 +88,7 @@ namespace Microsoft.AspNet.Mvc
         {
             var component = CreateComponent(context);
 
-            var result = await ReflectedActionExecutor.ExecuteAsync(method, component, _args);
+            var result = await ControllerActionExecutor.ExecuteAsync(method, component, _args);
 
             return CoerceToViewComponentResult(result);
         }

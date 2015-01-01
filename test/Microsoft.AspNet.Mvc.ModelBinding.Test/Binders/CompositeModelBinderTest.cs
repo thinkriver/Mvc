@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-#if NET45
+#if ASPNET50
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -31,7 +31,10 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
                 {
                     { "someName", "dummyValue" }
                 },
-                ValidatorProviders = Enumerable.Empty<IModelValidatorProvider>()
+                OperationBindingContext = new OperationBindingContext
+                {
+                    ValidatorProvider = GetValidatorProvider()
+                }
             };
 
             var mockIntBinder = new Mock<IModelBinder>();
@@ -78,14 +81,17 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
                 {
                     { "someOtherName", "dummyValue" }
                 },
-                ValidatorProviders = Enumerable.Empty<IModelValidatorProvider>()
+                OperationBindingContext = new OperationBindingContext
+                {
+                    ValidatorProvider = GetValidatorProvider()
+                }
             };
 
             var mockIntBinder = new Mock<IModelBinder>();
             mockIntBinder
                 .Setup(o => o.BindModelAsync(It.IsAny<ModelBindingContext>()))
                 .Returns(
-                    delegate(ModelBindingContext mbc)
+                    delegate (ModelBindingContext mbc)
                     {
                         if (!string.IsNullOrEmpty(mbc.ModelName))
                         {
@@ -110,7 +116,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             Assert.True(isBound);
             Assert.Equal(expectedModel, bindingContext.Model);
             Assert.True(validationCalled);
-            Assert.Equal(true, bindingContext.ModelState.IsValid);
+            Assert.True(bindingContext.ModelState.IsValid);
         }
 
         [Fact]
@@ -122,7 +128,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
                           .Returns(Task.FromResult(false))
                           .Verifiable();
 
-            var shimBinder = (IModelBinder)mockListBinder.Object;
+            var shimBinder = mockListBinder.Object;
 
             var bindingContext = new ModelBindingContext
             {
@@ -136,7 +142,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             // Assert
             Assert.False(isBound);
             Assert.Null(bindingContext.Model);
-            Assert.Equal(true, bindingContext.ModelState.IsValid);
+            Assert.True(bindingContext.ModelState.IsValid);
             mockListBinder.Verify();
         }
 
@@ -151,7 +157,8 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             {
                 FallbackToEmptyPrefix = true,
                 ModelMetadata = new EmptyModelMetadataProvider().GetMetadataForType(null, typeof(int)),
-                ModelState = new ModelStateDictionary()
+                ModelState = new ModelStateDictionary(),
+                OperationBindingContext = Mock.Of<OperationBindingContext>(),
             };
 
             // Act
@@ -200,6 +207,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
                 { "friends[0].friends[0].firstname", "nested friend"},
                 { "friends[1].firstName", "some other"},
                 { "friends[1].lastName", "name"},
+                { "resume", "4+mFeTp3tPF=" }
             };
             var bindingContext = CreateBindingContext(binder, valueProvider, typeof(Person));
 
@@ -218,6 +226,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             Assert.Equal("nested friend", nestedFriend.FirstName);
             Assert.Equal("some other", model.Friends[1].FirstName);
             Assert.Equal("name", model.Friends[1].LastName);
+            Assert.Equal(new byte[] { 227, 233, 133, 121, 58, 119, 180, 241 }, model.Resume);
         }
 
         [Fact]
@@ -231,7 +240,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
                 { "user.password", "password-val" },
                 { "user.confirmpassword", "not-password-val" },
             };
-            var bindingContext = CreateBindingContext(binder, valueProvider, typeof(User), new[] { validatorProvider });
+            var bindingContext = CreateBindingContext(binder, valueProvider, typeof(User), validatorProvider);
             bindingContext.ModelName = "user";
 
             // Act
@@ -253,7 +262,7 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
                 { "user.password", "password" },
                 { "user.confirmpassword", "password" },
             };
-            var bindingContext = CreateBindingContext(binder, valueProvider, typeof(User), new[] { validatorProvider });
+            var bindingContext = CreateBindingContext(binder, valueProvider, typeof(User), validatorProvider);
             bindingContext.ModelName = "user";
 
             // Act
@@ -264,22 +273,56 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             Assert.Equal("Password does not meet complexity requirements.", error.ErrorMessage);
         }
 
+        [Fact]
+        public async Task BindModel_UsesTryAddModelError()
+        {
+            // Arrange
+            var validatorProvider = new DataAnnotationsModelValidatorProvider();
+            var binder = CreateBinderWithDefaults();
+            var valueProvider = new SimpleHttpValueProvider
+            {
+                { "user.password", "password" },
+                { "user.confirmpassword", "password2" },
+            };
+            var bindingContext = CreateBindingContext(binder, valueProvider, typeof(User), validatorProvider);
+            bindingContext.ModelState.MaxAllowedErrors = 2;
+            bindingContext.ModelState.AddModelError("key1", "error1");
+            bindingContext.ModelName = "user";
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            var modelState = bindingContext.ModelState["user.confirmpassword"];
+            Assert.Empty(modelState.Errors);
+
+            modelState = bindingContext.ModelState["user"];
+            Assert.Empty(modelState.Errors);
+
+            var error = Assert.Single(bindingContext.ModelState[""].Errors);
+            Assert.IsType<TooManyModelErrorsException>(error.Exception);
+        }
+
+
         private static ModelBindingContext CreateBindingContext(IModelBinder binder,
                                                                 IValueProvider valueProvider,
                                                                 Type type,
-                                                                IEnumerable<IModelValidatorProvider> validatorProviders = null)
+                                                                IModelValidatorProvider validatorProvider = null)
         {
-            validatorProviders = validatorProviders ?? Enumerable.Empty<IModelValidatorProvider>();
+            validatorProvider = validatorProvider ?? GetValidatorProvider();
             var metadataProvider = new DataAnnotationsModelMetadataProvider();
             var bindingContext = new ModelBindingContext
             {
-                ModelBinder = binder,
                 FallbackToEmptyPrefix = true,
-                MetadataProvider = metadataProvider,
                 ModelMetadata = metadataProvider.GetMetadataForType(null, type),
                 ModelState = new ModelStateDictionary(),
                 ValueProvider = valueProvider,
-                ValidatorProviders = validatorProviders
+                OperationBindingContext = new OperationBindingContext
+                {
+                    MetadataProvider = metadataProvider,
+                    ModelBinder = binder,
+                    ValidatorProvider = validatorProvider
+                }
             };
             return bindingContext;
         }
@@ -291,15 +334,16 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             typeActivator
                 .Setup(t => t.CreateInstance(serviceProvider, It.IsAny<Type>(), It.IsAny<object[]>()))
                 .Returns((IServiceProvider sp, Type t, object[] args) => Activator.CreateInstance(t));
-            var binders = new IModelBinder[] 
-            { 
+            var binders = new IModelBinder[]
+            {
                 new TypeMatchModelBinder(),
+                new ByteArrayModelBinder(),
                 new GenericModelBinder(serviceProvider, typeActivator.Object),
                 new ComplexModelDtoModelBinder(),
                 new TypeConverterModelBinder(),
                 new MutableObjectModelBinder()
             };
-            var binderProviders = new Mock<IModelBindersProvider>();
+            var binderProviders = new Mock<IModelBinderProvider>();
             binderProviders.SetupGet(p => p.ModelBinders)
                            .Returns(binders);
             var binder = new CompositeModelBinder(binderProviders.Object);
@@ -308,12 +352,21 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
 
         private static CompositeModelBinder CreateCompositeBinder(IModelBinder mockIntBinder)
         {
-            var binderProvider = new Mock<IModelBindersProvider>();
+            var binderProvider = new Mock<IModelBinderProvider>();
             binderProvider.SetupGet(p => p.ModelBinders)
                           .Returns(new[] { mockIntBinder });
 
             var shimBinder = new CompositeModelBinder(binderProvider.Object);
             return shimBinder;
+        }
+
+        private static IModelValidatorProvider GetValidatorProvider(params IModelValidator[] validators)
+        {
+            var provider = new Mock<IModelValidatorProvider>();
+            provider.Setup(v => v.GetValidators(It.IsAny<ModelMetadata>()))
+                    .Returns(validators ?? Enumerable.Empty<IModelValidator>());
+
+            return provider.Object;
         }
 
         private class SimplePropertiesModel
@@ -331,6 +384,8 @@ namespace Microsoft.AspNet.Mvc.ModelBinding.Test
             public int Age { get; set; }
 
             public List<Person> Friends { get; set; }
+
+            public byte[] Resume { get; set; }
         }
 
         private class User : IValidatableObject

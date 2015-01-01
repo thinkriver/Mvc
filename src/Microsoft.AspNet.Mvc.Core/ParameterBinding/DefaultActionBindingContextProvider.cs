@@ -2,11 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNet.Mvc.ModelBinding;
-using Microsoft.Framework.OptionsModel;
 
 namespace Microsoft.AspNet.Mvc
 {
@@ -14,22 +11,22 @@ namespace Microsoft.AspNet.Mvc
     {
         private readonly IModelMetadataProvider _modelMetadataProvider;
         private readonly ICompositeModelBinder _compositeModelBinder;
-        private readonly IEnumerable<IValueProviderFactory> _valueProviderFactories;
-        private readonly IInputFormatterProvider _inputFormatterProvider;
-        private readonly IEnumerable<IModelValidatorProvider> _validatorProviders;
+        private readonly IValueProviderFactory _compositeValueProviderFactory;
+        private readonly IInputFormatterSelector _inputFormatterSelector;
+        private readonly ICompositeModelValidatorProvider _validatorProvider;
         private Tuple<ActionContext, ActionBindingContext> _bindingContext;
 
         public DefaultActionBindingContextProvider(IModelMetadataProvider modelMetadataProvider,
                                                    ICompositeModelBinder compositeModelBinder,
-                                                   IOptionsAccessor<MvcOptions> mvcOptionsAccessor,
-                                                   IInputFormatterProvider inputFormatterProvider,
-                                                   IEnumerable<IModelValidatorProvider> validatorProviders)
+                                                   ICompositeValueProviderFactory compositeValueProviderFactory,
+                                                   IInputFormatterSelector inputFormatterProvider,
+                                                   ICompositeModelValidatorProvider validatorProvider)
         {
             _modelMetadataProvider = modelMetadataProvider;
             _compositeModelBinder = compositeModelBinder;
-            _valueProviderFactories = mvcOptionsAccessor.Options.ValueProviderFactories;
-            _inputFormatterProvider = inputFormatterProvider;
-            _validatorProviders = validatorProviders;
+            _compositeValueProviderFactory = compositeValueProviderFactory;
+            _inputFormatterSelector = inputFormatterProvider;
+            _validatorProvider = validatorProvider;
         }
 
         public Task<ActionBindingContext> GetActionBindingContextAsync(ActionContext actionContext)
@@ -46,16 +43,15 @@ namespace Microsoft.AspNet.Mvc
                                     actionContext.HttpContext,
                                     actionContext.RouteData.Values);
 
-            var valueProviders = _valueProviderFactories.Select(factory => factory.GetValueProvider(factoryContext))
-                                                        .Where(vp => vp != null);
+            var valueProvider = _compositeValueProviderFactory.GetValueProvider(factoryContext);
 
             var context = new ActionBindingContext(
                 actionContext,
                 _modelMetadataProvider,
                 _compositeModelBinder,
-                new CompositeValueProvider(valueProviders),
-                _inputFormatterProvider,
-                _validatorProviders);
+                valueProvider,
+                _inputFormatterSelector,
+                _validatorProvider);
 
             _bindingContext = new Tuple<ActionContext, ActionBindingContext>(actionContext, context);
 

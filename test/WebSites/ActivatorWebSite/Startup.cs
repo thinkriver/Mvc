@@ -9,7 +9,7 @@ namespace ActivatorWebSite
 {
     public class Startup
     {
-        public void Configure(IBuilder app)
+        public void Configure(IApplicationBuilder app)
         {
             var configuration = app.GetTestConfiguration();
 
@@ -21,6 +21,9 @@ namespace ActivatorWebSite
                 services.AddInstance(new MyService());
                 services.AddScoped<ViewService, ViewService>();
             });
+
+            // Used to report exceptions that MVC doesn't handle
+            app.UseErrorReporter();
 
             // Add MVC to the request pipeline
             app.UseMvc(routes =>
